@@ -101,7 +101,7 @@
       "publicClient": false,
       "protocol": "openid-connect",
       "fullScopeAllowed": true,
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+      "defaultClientScopes": ["roles"]
     },
     {
       "clientId": "hrm-frontend",
@@ -111,10 +111,10 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "redirectUris": ["http://localhost:3000/*", "http://127.0.0.1:3000/*"],
-      "webOrigins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+      "webOrigins": ["http://localhost:3000", "http://127.0.0.1:3000", "+"],
       "protocol": "openid-connect",
       "fullScopeAllowed": true,
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+      "defaultClientScopes": ["roles"]
     }
   ],
   "clientScopes": [
@@ -265,5 +265,5 @@
       }
     }
   ],
-  "defaultDefaultClientScopes": ["openid", "profile", "email", "roles"]
+  "defaultDefaultClientScopes": ["roles"]
 }

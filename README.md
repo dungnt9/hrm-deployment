@@ -8,48 +8,33 @@ Deployment repository cho hệ thống HRM (Human Resource Management) - chứa 
 
 - **Docker** version 24+
 - **Docker Compose** version 2+
-- **Git** (để clone repos)
+
+### Cấu trúc thư mục
+
+Đảm bảo các repos nằm cùng cấp với `hrm-deployment`:
+
+```
+hrm/
+├── hrm-deployment/           # (folder này)
+├── hrm-employee-service/
+├── hrm-Time-Service/
+├── hrm-Notification-Service/
+├── hrm-ApiGateway/
+└── hrm-nextjs/
+```
+
+### Chạy dự án
 
 ```bash
-# 1. Clone deployment repo
-git clone https://github.com/YOUR_USERNAME/hrm-deployment.git
 cd hrm-deployment
-
-# 2. Tạo thư mục services và clone các repos
-mkdir services
-cd services
-
-git clone https://github.com/YOUR_USERNAME/hrm-employee-service.git
-git clone https://github.com/YOUR_USERNAME/hrm-time-service.git
-git clone https://github.com/YOUR_USERNAME/hrm-notification-service.git
-git clone https://github.com/YOUR_USERNAME/hrm-api-gateway.git
-git clone https://github.com/YOUR_USERNAME/hrm-frontend.git
-
-# 3. Quay lại root và chạy
-cd ..
-docker compose up -d
+docker compose up -d --build
 ```
 
----
+### Reset toàn bộ (xóa data)
 
-## Cấu trúc thư mục
-
-```
-hrm-deployment/
-├── docker-compose.yml          # Docker orchestration
-├── README.md                   # File này
-├── .gitignore
-│
-├── infrastructure/
-│   └── keycloak/
-│       └── realm-export.json   # Keycloak realm config
-│
-└── services/                   # Clone các repos vào đây
-    ├── hrm-employee-service/   # git clone
-    ├── hrm-time-service/       # git clone
-    ├── hrm-notification-service/
-    ├── hrm-api-gateway/
-    └── hrm-frontend/
+```bash
+docker compose down -v
+docker compose up -d --build
 ```
 
 ---

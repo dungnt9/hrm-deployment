@@ -1,10 +1,16 @@
 # HRM System - Docker Compose Deployment
 #
 # Cách sử dụng:
-# 1. Clone các repos vào thư mục services/ (xem README.md)
-# 2. Chạy: docker compose up -d
+# Đảm bảo các repos nằm cùng cấp với hrm-deployment:
+#   hrm/
+#   ├── hrm-deployment/     (folder này)
+#   ├── hrm-employee-service/
+#   ├── hrm-Time-Service/
+#   ├── hrm-Notification-Service/
+#   ├── hrm-ApiGateway/
+#   └── hrm-nextjs/
 #
-# Hoặc dùng script: ./scripts/setup.sh
+# Chạy: docker compose up -d
 
 services:
   # ===========================================
@@ -191,7 +197,7 @@ services:
   # Employee Service (gRPC)
   employee-service:
     build:
-      context: ./services/hrm-employee-service
+      context: ../hrm-employee-service
       dockerfile: Dockerfile
     container_name: hrm-employee-service
     restart: on-failure
@@ -214,7 +220,7 @@ services:
   # Time Service (gRPC)
   time-service:
     build:
-      context: ./services/hrm-time-service
+      context: ../hrm-Time-Service
       dockerfile: Dockerfile
     container_name: hrm-time-service
     restart: on-failure
@@ -246,7 +252,7 @@ services:
   # Notification Service (SignalR)
   notification-service:
     build:
-      context: ./services/hrm-notification-service
+      context: ../hrm-Notification-Service
       dockerfile: Dockerfile
     container_name: hrm-notification-service
     restart: on-failure
@@ -273,7 +279,7 @@ services:
   # API Gateway (REST + GraphQL)
   api-gateway:
     build:
-      context: ./services/hrm-api-gateway
+      context: ../hrm-ApiGateway
       dockerfile: Dockerfile
     container_name: hrm-api-gateway
     restart: on-failure
@@ -298,7 +304,7 @@ services:
   # Frontend (Next.js)
   frontend:
     build:
-      context: ./services/hrm-frontend
+      context: ../hrm-nextjs
       dockerfile: Dockerfile
     container_name: hrm-frontend
     restart: on-failure
