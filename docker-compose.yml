@@ -1,0 +1,330 @@
+# HRM System - Docker Compose Deployment
+#
+# Cách sử dụng:
+# 1. Clone các repos vào thư mục services/ (xem README.md)
+# 2. Chạy: docker compose up -d
+#
+# Hoặc dùng script: ./scripts/setup.sh
+
+services:
+  # ===========================================
+  # INFRASTRUCTURE SERVICES
+  # ===========================================
+
+  # PostgreSQL for Employee Service
+  postgres-employee:
+    image: postgres:16-alpine
+    container_name: hrm-postgres-employee
+    environment:
+      POSTGRES_USER: employee_user
+      POSTGRES_PASSWORD: employee_pass
+      POSTGRES_DB: employee_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_employee_data:/var/lib/postgresql/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U employee_user -d employee_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL for Time Service
+  postgres-time:
+    image: postgres:16-alpine
+    container_name: hrm-postgres-time
+    environment:
+      POSTGRES_USER: time_user
+      POSTGRES_PASSWORD: time_pass
+      POSTGRES_DB: time_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_time_data:/var/lib/postgresql/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U time_user -d time_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL for Notification Service
+  postgres-notification:
+    image: postgres:16-alpine
+    container_name: hrm-postgres-notification
+    environment:
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification_pass
+      POSTGRES_DB: notification_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_notification_data:/var/lib/postgresql/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notification_user -d notification_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL for Keycloak
+  postgres-keycloak:
+    image: postgres:16-alpine
+    container_name: hrm-postgres-keycloak
+    environment:
+      POSTGRES_USER: keycloak_user
+      POSTGRES_PASSWORD: keycloak_pass
+      POSTGRES_DB: keycloak_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_keycloak_data:/var/lib/postgresql/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Time Service cache
+  redis:
+    image: redis:7-alpine
+    container_name: hrm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ for Event Bus
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: hrm-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: hrm_user
+      RABBITMQ_DEFAULT_PASS: hrm_pass
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Keycloak for Authentication
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: hrm-keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/keycloak_db
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: keycloak_pass
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: edge
+      KC_HEALTH_ENABLED: "true"
+    command: start-dev --import-realm
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./infrastructure/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    depends_on:
+      postgres-keycloak:
+        condition: service_healthy
+    networks:
+      - hrm-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: 127.0.0.1:8080\\r\\nConnection: close\\r\\n\\r\\n' >&3;if [ $? -eq 0 ]; then echo 'Healthcheck Successful';exit 0;else echo 'Healthcheck Failed';exit 1;fi;",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # MinIO for File Storage
+  minio:
+    image: minio/minio:latest
+    container_name: hrm-minio
+    environment:
+      MINIO_ROOT_USER: minio_user
+      MINIO_ROOT_PASSWORD: minio_pass
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # APPLICATION SERVICES
+  # ===========================================
+
+  # Employee Service (gRPC)
+  employee-service:
+    build:
+      context: ./services/hrm-employee-service
+      dockerfile: Dockerfile
+    container_name: hrm-employee-service
+    restart: on-failure
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres-employee;Port=5432;Database=employee_db;Username=employee_user;Password=employee_pass"
+      Keycloak__Authority: "http://keycloak:8080/realms/hrm"
+      Keycloak__Audience: "hrm-api"
+    ports:
+      - "5001:8080"
+      - "5002:8081"
+    depends_on:
+      postgres-employee:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Time Service (gRPC)
+  time-service:
+    build:
+      context: ./services/hrm-time-service
+      dockerfile: Dockerfile
+    container_name: hrm-time-service
+    restart: on-failure
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres-time;Port=5432;Database=time_db;Username=time_user;Password=time_pass"
+      ConnectionStrings__Redis: "redis:6379"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Username: "hrm_user"
+      RabbitMQ__Password: "hrm_pass"
+      GrpcServices__EmployeeService: "http://employee-service:8081"
+      Keycloak__Authority: "http://keycloak:8080/realms/hrm"
+      Keycloak__Audience: "hrm-api"
+    ports:
+      - "5003:8080"
+      - "5004:8081"
+    depends_on:
+      postgres-time:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      employee-service:
+        condition: service_started
+    networks:
+      - hrm-network
+
+  # Notification Service (SignalR)
+  notification-service:
+    build:
+      context: ./services/hrm-notification-service
+      dockerfile: Dockerfile
+    container_name: hrm-notification-service
+    restart: on-failure
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres-notification;Port=5432;Database=notification_db;Username=notification_user;Password=notification_pass"
+      RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Username: "hrm_user"
+      RabbitMQ__Password: "hrm_pass"
+      Keycloak__Authority: "http://keycloak:8080/realms/hrm"
+      Keycloak__Audience: "hrm-api"
+    ports:
+      - "5005:8080"
+    depends_on:
+      postgres-notification:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # API Gateway (REST + GraphQL)
+  api-gateway:
+    build:
+      context: ./services/hrm-api-gateway
+      dockerfile: Dockerfile
+    container_name: hrm-api-gateway
+    restart: on-failure
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      GrpcServices__EmployeeService: "http://employee-service:8081"
+      GrpcServices__TimeService: "http://time-service:8081"
+      Keycloak__Authority: "http://keycloak:8080/realms/hrm"
+      Keycloak__Audience: "hrm-api"
+    ports:
+      - "5000:8080"
+    depends_on:
+      employee-service:
+        condition: service_started
+      time-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+    networks:
+      - hrm-network
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./services/hrm-frontend
+      dockerfile: Dockerfile
+    container_name: hrm-frontend
+    restart: on-failure
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:5000"
+      NEXT_PUBLIC_KEYCLOAK_URL: "http://localhost:8080"
+      NEXT_PUBLIC_KEYCLOAK_REALM: "hrm"
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "hrm-frontend"
+      NEXT_PUBLIC_NOTIFICATION_HUB_URL: "http://localhost:5005/hubs/notification"
+    ports:
+      - "3000:3000"
+    depends_on:
+      api-gateway:
+        condition: service_started
+    networks:
+      - hrm-network
+
+volumes:
+  postgres_employee_data:
+  postgres_time_data:
+  postgres_notification_data:
+  postgres_keycloak_data:
+  redis_data:
+  rabbitmq_data:
+  minio_data:
+
+networks:
+  hrm-network:
+    driver: bridge

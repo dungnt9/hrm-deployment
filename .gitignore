@@ -1,0 +1,25 @@
+# Services (cloned separately)
+services/
+
+# Docker volumes (if mounted locally)
+data/
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/

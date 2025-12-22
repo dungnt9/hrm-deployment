@@ -1,0 +1,269 @@
+{
+  "realm": "hrm",
+  "enabled": true,
+  "displayName": "HRM System",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "employee",
+        "description": "Basic employee role"
+      },
+      {
+        "name": "manager",
+        "description": "Manager role with team management capabilities"
+      },
+      {
+        "name": "hr_staff",
+        "description": "HR Staff role with employee management capabilities"
+      },
+      {
+        "name": "system_admin",
+        "description": "System Administrator with full access"
+      }
+    ],
+    "client": {
+      "hrm-api": [
+        {
+          "name": "employee.read",
+          "description": "Read employee data"
+        },
+        {
+          "name": "employee.write",
+          "description": "Write employee data"
+        },
+        {
+          "name": "attendance.read",
+          "description": "Read attendance data"
+        },
+        {
+          "name": "attendance.write",
+          "description": "Write attendance data"
+        },
+        {
+          "name": "leave.read",
+          "description": "Read leave requests"
+        },
+        {
+          "name": "leave.write",
+          "description": "Create leave requests"
+        },
+        {
+          "name": "leave.approve",
+          "description": "Approve/Reject leave requests"
+        },
+        {
+          "name": "report.read",
+          "description": "Read reports"
+        },
+        {
+          "name": "admin",
+          "description": "Admin access"
+        }
+      ]
+    }
+  },
+  "groups": [
+    {
+      "name": "Employees",
+      "realmRoles": ["employee"]
+    },
+    {
+      "name": "Managers",
+      "realmRoles": ["employee", "manager"]
+    },
+    {
+      "name": "HR",
+      "realmRoles": ["employee", "hr_staff"]
+    },
+    {
+      "name": "Administrators",
+      "realmRoles": ["employee", "system_admin"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "hrm-api",
+      "name": "HRM API",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "hrm-api-secret",
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "fullScopeAllowed": true,
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "hrm-frontend",
+      "name": "HRM Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*", "http://127.0.0.1:3000/*"],
+      "webOrigins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+      "protocol": "openid-connect",
+      "fullScopeAllowed": true,
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "roles",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_roles",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "client roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "client_roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@hrm.local",
+      "firstName": "System",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["system_admin", "employee"],
+      "clientRoles": {
+        "hrm-api": [
+          "admin",
+          "employee.read",
+          "employee.write",
+          "attendance.read",
+          "attendance.write",
+          "leave.read",
+          "leave.write",
+          "leave.approve",
+          "report.read"
+        ]
+      }
+    },
+    {
+      "username": "hr_user",
+      "email": "hr@hrm.local",
+      "firstName": "HR",
+      "lastName": "Staff",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "hr123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["hr_staff", "employee"],
+      "clientRoles": {
+        "hrm-api": [
+          "employee.read",
+          "employee.write",
+          "attendance.read",
+          "leave.read",
+          "leave.approve",
+          "report.read"
+        ]
+      }
+    },
+    {
+      "username": "manager_user",
+      "email": "manager@hrm.local",
+      "firstName": "Team",
+      "lastName": "Manager",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "manager123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["manager", "employee"],
+      "clientRoles": {
+        "hrm-api": [
+          "employee.read",
+          "attendance.read",
+          "attendance.write",
+          "leave.read",
+          "leave.write",
+          "leave.approve"
+        ]
+      }
+    },
+    {
+      "username": "employee_user",
+      "email": "employee@hrm.local",
+      "firstName": "Normal",
+      "lastName": "Employee",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "employee123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["employee"],
+      "clientRoles": {
+        "hrm-api": [
+          "employee.read",
+          "attendance.read",
+          "attendance.write",
+          "leave.read",
+          "leave.write"
+        ]
+      }
+    }
+  ],
+  "defaultDefaultClientScopes": ["openid", "profile", "email", "roles"]
+}
