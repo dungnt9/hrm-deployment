@@ -1,0 +1,63 @@
+version: '3.9'
+
+# Authz Service - Authorization management
+# Port 8282: REST API
+# Port 8283: gRPC
+# Port 3001: UI
+
+services:
+  authz_postgres:
+    image: postgres:16-alpine
+    container_name: hrm-authz-postgres
+    environment:
+      POSTGRES_USER: authz_user
+      POSTGRES_PASSWORD: authz_pass
+      POSTGRES_DB: authz_db
+    volumes:
+      - ./schema.postgres.sql:/docker-entrypoint-initdb.d/schema.sql
+      - authz_postgres_data:/var/lib/postgresql/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authz_user -d authz_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  authz:
+    image: authz:latest
+    container_name: hrm-authz
+    depends_on:
+      authz_postgres:
+        condition: service_healthy
+    ports:
+      - "8282:8080"   # REST API
+      - "8283:8081"   # gRPC
+      - "3001:80"     # UI
+    environment:
+      # Database
+      DATABASE_DRIVER: postgres
+      DATABASE_HOST: authz_postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: authz_user
+      DATABASE_PASSWORD: authz_pass
+      DATABASE_SCHEMA: authz
+
+      # OAuth/Keycloak SSO
+      OAUTH_CLIENT_ID: hrm-authz
+      OAUTH_ISSUER_URL: http://keycloak:8080/realms/hrm
+      OAUTH_FRONTEND_REDIRECT_URL: http://localhost:3001
+      OAUTH_REDIRECT_URL: http://localhost:8282/v1/oauth/callback
+      REACT_APP_OAUTH_ENABLED: "true"
+
+      # API config
+      REACT_APP_API_BASE_URI: http://localhost:8282/v1
+    networks:
+      - hrm-network
+
+volumes:
+  authz_postgres_data:
+
+networks:
+  hrm-network:
+    external: true

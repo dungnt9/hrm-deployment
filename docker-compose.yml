@@ -1,7 +1,11 @@
+# =====================================================
 # HRM System - Docker Compose Deployment
+# =====================================================
 #
-# Cách sử dụng:
-# Đảm bảo các repos nằm cùng cấp với hrm-deployment:
+# Chạy toàn bộ hệ thống: docker compose up -d
+# Reset toàn bộ: docker compose down -v && docker compose up -d
+#
+# Cấu trúc thư mục yêu cầu:
 #   hrm/
 #   ├── hrm-deployment/     (folder này)
 #   ├── hrm-employee-service/
@@ -10,14 +14,20 @@
 #   ├── hrm-ApiGateway/
 #   └── hrm-nextjs/
 #
-# Chạy: docker compose up -d
+# Ports:
+#   - 3000: Frontend (Next.js)
+#   - 5000: API Gateway (REST/GraphQL)
+#   - 5100: Socket Service (WebSocket)
+#   - 8080: Keycloak (SSO)
+#   - 15672: RabbitMQ Management
+#   - 9001: MinIO Console
+# =====================================================
 
 services:
-  # ===========================================
-  # INFRASTRUCTURE SERVICES
-  # ===========================================
+  # =====================================================
+  # INFRASTRUCTURE - Databases
+  # =====================================================
 
-  # PostgreSQL for Employee Service
   postgres-employee:
     image: postgres:16-alpine
     container_name: hrm-postgres-employee
@@ -33,11 +43,10 @@ services:
       - hrm-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U employee_user -d employee_db"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
 
-  # PostgreSQL for Time Service
   postgres-time:
     image: postgres:16-alpine
     container_name: hrm-postgres-time
@@ -53,11 +62,10 @@ services:
       - hrm-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U time_user -d time_db"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
 
-  # PostgreSQL for Notification Service
   postgres-notification:
     image: postgres:16-alpine
     container_name: hrm-postgres-notification
@@ -73,11 +81,10 @@ services:
       - hrm-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U notification_user -d notification_db"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
 
-  # PostgreSQL for Keycloak
   postgres-keycloak:
     image: postgres:16-alpine
     container_name: hrm-postgres-keycloak
@@ -93,11 +100,35 @@ services:
       - hrm-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak_db"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
 
-  # Redis for Time Service cache
+  # Authz Database với schema tự động init
+  postgres-authz:
+    image: postgres:16-alpine
+    container_name: hrm-postgres-authz
+    environment:
+      POSTGRES_USER: authz_user
+      POSTGRES_PASSWORD: authz_pass
+      POSTGRES_DB: authz_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - ./infrastructure/authz/schema.postgres.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - postgres_authz_data:/var/lib/postgresql/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authz_user -d authz_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================
+  # INFRASTRUCTURE - Cache & Message Queue
+  # =====================================================
+
   redis:
     image: redis:7-alpine
     container_name: hrm-redis
@@ -109,11 +140,10 @@ services:
       - hrm-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
 
-  # RabbitMQ for Event Bus
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: hrm-rabbitmq
@@ -130,10 +160,13 @@ services:
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 5
 
-  # Keycloak for Authentication
+  # =====================================================
+  # INFRASTRUCTURE - Keycloak SSO
+  # =====================================================
+
   keycloak:
     image: quay.io/keycloak/keycloak:23.0
     container_name: hrm-keycloak
@@ -152,24 +185,23 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./infrastructure/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+      - ./infrastructure/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     depends_on:
       postgres-keycloak:
-        condition: service_healthy
+        condition: service_started
     networks:
       - hrm-network
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: 127.0.0.1:8080\\r\\nConnection: close\\r\\n\\r\\n' >&3;if [ $? -eq 0 ]; then echo 'Healthcheck Successful';exit 0;else echo 'Healthcheck Failed';exit 1;fi;",
-        ]
-      interval: 30s
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      interval: 10s
       timeout: 10s
-      retries: 10
-      start_period: 60s
+      retries: 20
+      start_period: 30s
 
-  # MinIO for File Storage
+  # =====================================================
+  # INFRASTRUCTURE - MinIO Object Storage
+  # =====================================================
+
   minio:
     image: minio/minio:latest
     container_name: hrm-minio
@@ -185,110 +217,164 @@ services:
     networks:
       - hrm-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ===========================================
-  # APPLICATION SERVICES
-  # ===========================================
+  # =====================================================
+  # SOCKET SERVICE - Real-time WebSocket (học từ VMS)
+  # =====================================================
 
-  # Employee Service (gRPC)
+  socket-service:
+    build:
+      context: ./infrastructure/socket
+      dockerfile: Dockerfile
+    container_name: hrm-socket
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: "5001"
+      AUTH_API: "http://api-gateway:8080/api/auth/me"
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: "hrm_user"
+      RABBITMQ_PASSWORD: "hrm_pass"
+      RABBITMQ_WORK_QUEUE_NAME: "hrm_socket_work_queue"
+    ports:
+      - "5100:5001"
+    depends_on:
+      rabbitmq:
+        condition: service_started
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================
+  # APPLICATION SERVICES
+  # =====================================================
+
+  # Employee Service (gRPC) - Quản lý nhân viên
   employee-service:
     build:
       context: ../hrm-employee-service
       dockerfile: Dockerfile
     container_name: hrm-employee-service
-    restart: on-failure
+    restart: unless-stopped
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "http://+:8080;http://+:8081"
       ConnectionStrings__DefaultConnection: "Host=postgres-employee;Port=5432;Database=employee_db;Username=employee_user;Password=employee_pass"
       Keycloak__Authority: "http://keycloak:8080/realms/hrm"
       Keycloak__Audience: "hrm-api"
+      Keycloak__ClientId: "hrm-api"
+      Keycloak__ClientSecret: "hrm-api-secret"
+      Keycloak__RequireHttps: "false"
     ports:
       - "5001:8080"
       - "5002:8081"
     depends_on:
       postgres-employee:
-        condition: service_healthy
+        condition: service_started
       keycloak:
-        condition: service_healthy
+        condition: service_started
     networks:
       - hrm-network
 
-  # Time Service (gRPC)
+  # Time Service (gRPC) - Chấm công, nghỉ phép, tăng ca
   time-service:
     build:
       context: ../hrm-Time-Service
       dockerfile: Dockerfile
     container_name: hrm-time-service
-    restart: on-failure
+    restart: unless-stopped
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "http://+:8080;http://+:8081"
       ConnectionStrings__DefaultConnection: "Host=postgres-time;Port=5432;Database=time_db;Username=time_user;Password=time_pass"
       ConnectionStrings__Redis: "redis:6379"
       RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Port: "5672"
       RabbitMQ__Username: "hrm_user"
       RabbitMQ__Password: "hrm_pass"
+      RabbitMQ__SocketQueueName: "hrm_socket_work_queue"
       GrpcServices__EmployeeService: "http://employee-service:8081"
       Keycloak__Authority: "http://keycloak:8080/realms/hrm"
       Keycloak__Audience: "hrm-api"
+      Keycloak__ClientId: "hrm-api"
+      Keycloak__ClientSecret: "hrm-api-secret"
+      Keycloak__RequireHttps: "false"
     ports:
       - "5003:8080"
       - "5004:8081"
     depends_on:
       postgres-time:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
       employee-service:
+        condition: service_started
+      keycloak:
         condition: service_started
     networks:
       - hrm-network
 
-  # Notification Service (SignalR)
+  # Notification Service (SignalR) - Thông báo real-time
   notification-service:
     build:
       context: ../hrm-Notification-Service
       dockerfile: Dockerfile
     container_name: hrm-notification-service
-    restart: on-failure
+    restart: unless-stopped
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "http://+:8080"
       ConnectionStrings__DefaultConnection: "Host=postgres-notification;Port=5432;Database=notification_db;Username=notification_user;Password=notification_pass"
       RabbitMQ__Host: "rabbitmq"
+      RabbitMQ__Port: "5672"
       RabbitMQ__Username: "hrm_user"
       RabbitMQ__Password: "hrm_pass"
+      RabbitMQ__SocketQueueName: "hrm_socket_work_queue"
       Keycloak__Authority: "http://keycloak:8080/realms/hrm"
       Keycloak__Audience: "hrm-api"
+      Keycloak__RequireHttps: "false"
     ports:
       - "5005:8080"
     depends_on:
       postgres-notification:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
       keycloak:
-        condition: service_healthy
+        condition: service_started
     networks:
       - hrm-network
 
-  # API Gateway (REST + GraphQL)
+  # API Gateway (REST + GraphQL) - Entry point
   api-gateway:
     build:
       context: ../hrm-ApiGateway
       dockerfile: Dockerfile
     container_name: hrm-api-gateway
-    restart: on-failure
+    restart: unless-stopped
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "http://+:8080"
       GrpcServices__EmployeeService: "http://employee-service:8081"
       GrpcServices__TimeService: "http://time-service:8081"
+      NotificationService__Url: "http://notification-service:8080"
       Keycloak__Authority: "http://keycloak:8080/realms/hrm"
       Keycloak__Audience: "hrm-api"
+      Keycloak__ClientId: "hrm-api"
+      Keycloak__ClientSecret: "hrm-api-secret"
+      Keycloak__RequireHttps: "false"
+      Cors__AllowedOrigins__0: "http://localhost:3000"
+      Cors__AllowedOrigins__1: "http://127.0.0.1:3000"
     ports:
       - "5000:8080"
     depends_on:
@@ -301,19 +387,20 @@ services:
     networks:
       - hrm-network
 
-  # Frontend (Next.js)
+  # Frontend (Next.js) - Web UI
   frontend:
     build:
       context: ../hrm-nextjs
       dockerfile: Dockerfile
     container_name: hrm-frontend
-    restart: on-failure
+    restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:5000"
       NEXT_PUBLIC_KEYCLOAK_URL: "http://localhost:8080"
       NEXT_PUBLIC_KEYCLOAK_REALM: "hrm"
       NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "hrm-frontend"
       NEXT_PUBLIC_NOTIFICATION_HUB_URL: "http://localhost:5005/hubs/notification"
+      NEXT_PUBLIC_SOCKET_URL: "http://localhost:5100"
     ports:
       - "3000:3000"
     depends_on:
@@ -322,15 +409,22 @@ services:
     networks:
       - hrm-network
 
+# =====================================================
+# VOLUMES
+# =====================================================
 volumes:
   postgres_employee_data:
   postgres_time_data:
   postgres_notification_data:
   postgres_keycloak_data:
+  postgres_authz_data:
   redis_data:
   rabbitmq_data:
   minio_data:
 
+# =====================================================
+# NETWORKS
+# =====================================================
 networks:
   hrm-network:
     driver: bridge

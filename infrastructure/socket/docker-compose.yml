@@ -1,0 +1,29 @@
+version: '3.9'
+
+# HRM Socket Service - Real-time WebSocket communication
+# Port 5001: Socket.io server
+
+services:
+  hrm_socket:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hrm-socket
+    ports:
+      - "5001:5001"
+    environment:
+      - SERVER_PORT=5001
+      - AUTH_API=http://api-gateway:8080/api/auth/me
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=hrm_user
+      - RABBITMQ_PASSWORD=hrm_pass
+      - RABBITMQ_WORK_QUEUE_NAME=hrm_socket_work_queue
+    depends_on:
+      - rabbitmq
+    networks:
+      - hrm-network
+
+networks:
+  hrm-network:
+    external: true

@@ -2,6 +2,7 @@
   "realm": "hrm",
   "enabled": true,
   "displayName": "HRM System",
+  "displayNameHtml": "<strong>HRM</strong> System",
   "sslRequired": "none",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
@@ -9,63 +10,63 @@
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
   "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "accessTokenLifespan": 3600,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
   "roles": {
     "realm": [
       {
         "name": "employee",
-        "description": "Basic employee role"
+        "description": "Basic employee role - can check-in/out, view own data, request leave"
       },
       {
         "name": "manager",
-        "description": "Manager role with team management capabilities"
+        "description": "Manager role - can view team, approve leave for team members"
       },
       {
         "name": "hr_staff",
-        "description": "HR Staff role with employee management capabilities"
+        "description": "HR Staff role - can manage employees, final approve leave, view reports"
       },
       {
         "name": "system_admin",
-        "description": "System Administrator with full access"
+        "description": "System Administrator - full access to all features"
       }
     ],
     "client": {
       "hrm-api": [
-        {
-          "name": "employee.read",
-          "description": "Read employee data"
-        },
-        {
-          "name": "employee.write",
-          "description": "Write employee data"
-        },
-        {
-          "name": "attendance.read",
-          "description": "Read attendance data"
-        },
-        {
-          "name": "attendance.write",
-          "description": "Write attendance data"
-        },
-        {
-          "name": "leave.read",
-          "description": "Read leave requests"
-        },
-        {
-          "name": "leave.write",
-          "description": "Create leave requests"
-        },
-        {
-          "name": "leave.approve",
-          "description": "Approve/Reject leave requests"
-        },
-        {
-          "name": "report.read",
-          "description": "Read reports"
-        },
-        {
-          "name": "admin",
-          "description": "Admin access"
-        }
+        { "name": "employee.read", "description": "Read employee data" },
+        { "name": "employee.write", "description": "Create/Update employee data" },
+        { "name": "employee.delete", "description": "Delete employee" },
+        { "name": "department.read", "description": "Read department data" },
+        { "name": "department.write", "description": "Manage departments" },
+        { "name": "team.read", "description": "Read team data" },
+        { "name": "team.write", "description": "Manage teams" },
+        { "name": "attendance.read", "description": "Read attendance data" },
+        { "name": "attendance.write", "description": "Check-in/Check-out" },
+        { "name": "attendance.manage", "description": "Manage attendance records" },
+        { "name": "leave.read", "description": "Read leave requests" },
+        { "name": "leave.write", "description": "Create leave requests" },
+        { "name": "leave.approve", "description": "Approve/Reject leave requests" },
+        { "name": "overtime.read", "description": "Read overtime requests" },
+        { "name": "overtime.write", "description": "Create overtime requests" },
+        { "name": "overtime.approve", "description": "Approve/Reject overtime" },
+        { "name": "shift.read", "description": "Read shift data" },
+        { "name": "shift.write", "description": "Manage shifts" },
+        { "name": "notification.read", "description": "Read notifications" },
+        { "name": "notification.write", "description": "Send notifications" },
+        { "name": "report.read", "description": "Read reports" },
+        { "name": "report.export", "description": "Export reports" },
+        { "name": "settings.read", "description": "Read settings" },
+        { "name": "settings.write", "description": "Manage settings" },
+        { "name": "admin", "description": "Full admin access" }
       ]
     }
   },
@@ -90,40 +91,68 @@
   "clients": [
     {
       "clientId": "hrm-api",
-      "name": "HRM API",
+      "name": "HRM Backend API",
+      "description": "Backend services client",
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "hrm-api-secret",
       "bearerOnly": true,
       "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": true,
       "publicClient": false,
       "protocol": "openid-connect",
       "fullScopeAllowed": true,
-      "defaultClientScopes": ["roles", "openid", "profile", "email"]
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
     },
     {
       "clientId": "hrm-frontend",
       "name": "HRM Frontend",
+      "description": "Next.js frontend application",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["http://localhost:3000/*", "http://127.0.0.1:3000/*"],
-      "webOrigins": ["http://localhost:3000", "http://127.0.0.1:3000", "+"],
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "+"
+      ],
       "protocol": "openid-connect",
       "fullScopeAllowed": true,
-      "defaultClientScopes": ["roles", "openid", "profile", "email"],
-      "optionalClientScopes": ["roles", "openid", "profile", "email"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
       "protocolMappers": [
         {
-          "name": "audience mapper",
+          "name": "audience-mapper",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "hrm-api"
+            "included.client.audience": "hrm-api",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "employee-id-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "employeeId",
+            "claim.name": "employee_id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "jsonType.label": "String"
           }
         }
       ]
@@ -132,6 +161,7 @@
   "clientScopes": [
     {
       "name": "roles",
+      "description": "OpenID Connect scope for roles",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true",
@@ -139,7 +169,7 @@
       },
       "protocolMappers": [
         {
-          "name": "realm roles",
+          "name": "realm-roles",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-realm-role-mapper",
           "consentRequired": false,
@@ -148,12 +178,12 @@
             "userinfo.token.claim": "true",
             "id.token.claim": "true",
             "access.token.claim": "true",
-            "claim.name": "realm_roles",
+            "claim.name": "roles",
             "jsonType.label": "String"
           }
         },
         {
-          "name": "client roles",
+          "name": "client-roles",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-client-role-mapper",
           "consentRequired": false,
@@ -162,7 +192,7 @@
             "userinfo.token.claim": "true",
             "id.token.claim": "true",
             "access.token.claim": "true",
-            "claim.name": "client_roles",
+            "claim.name": "resource_access.${client_id}.roles",
             "jsonType.label": "String"
           }
         }
@@ -172,17 +202,16 @@
       "name": "openid",
       "protocol": "openid-connect",
       "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
+        "include.in.token.scope": "true"
       },
       "protocolMappers": [
         {
-          "name": "audience",
+          "name": "sub",
           "protocol": "openid-connect",
-          "protocolMapper": "oidc-audience-mapper",
+          "protocolMapper": "oidc-sub-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "hrm-api"
+            "access.token.claim": "true"
           }
         }
       ]
@@ -191,8 +220,7 @@
       "name": "profile",
       "protocol": "openid-connect",
       "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
+        "include.in.token.scope": "true"
       },
       "protocolMappers": [
         {
@@ -201,40 +229,51 @@
           "protocolMapper": "oidc-usermodel-property-mapper",
           "consentRequired": false,
           "config": {
-            "userinfo.token.claim": "true",
             "user.attribute": "username",
-            "id.token.claim": "true",
-            "access.token.claim": "true",
             "claim.name": "preferred_username",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
             "jsonType.label": "String"
           }
         },
         {
-          "name": "name",
+          "name": "given-name",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-property-mapper",
           "consentRequired": false,
           "config": {
-            "userinfo.token.claim": "true",
             "user.attribute": "firstName",
+            "claim.name": "given_name",
             "id.token.claim": "true",
             "access.token.claim": "true",
-            "claim.name": "given_name",
+            "userinfo.token.claim": "true",
             "jsonType.label": "String"
           }
         },
         {
-          "name": "family name",
+          "name": "family-name",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-property-mapper",
           "consentRequired": false,
           "config": {
-            "userinfo.token.claim": "true",
             "user.attribute": "lastName",
+            "claim.name": "family_name",
             "id.token.claim": "true",
             "access.token.claim": "true",
-            "claim.name": "family_name",
+            "userinfo.token.claim": "true",
             "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "full-name",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-full-name-mapper",
+          "consentRequired": false,
+          "config": {
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
           }
         }
       ]
@@ -243,8 +282,7 @@
       "name": "email",
       "protocol": "openid-connect",
       "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
+        "include.in.token.scope": "true"
       },
       "protocolMappers": [
         {
@@ -253,25 +291,25 @@
           "protocolMapper": "oidc-usermodel-property-mapper",
           "consentRequired": false,
           "config": {
-            "userinfo.token.claim": "true",
             "user.attribute": "email",
+            "claim.name": "email",
             "id.token.claim": "true",
             "access.token.claim": "true",
-            "claim.name": "email",
+            "userinfo.token.claim": "true",
             "jsonType.label": "String"
           }
         },
         {
-          "name": "email verified",
+          "name": "email-verified",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-property-mapper",
           "consentRequired": false,
           "config": {
-            "userinfo.token.claim": "true",
             "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
             "id.token.claim": "true",
             "access.token.claim": "true",
-            "claim.name": "email_verified",
+            "userinfo.token.claim": "true",
             "jsonType.label": "boolean"
           }
         }
@@ -286,6 +324,9 @@
       "lastName": "Admin",
       "enabled": true,
       "emailVerified": true,
+      "attributes": {
+        "employeeId": ["EMP001"]
+      },
       "credentials": [
         {
           "type": "password",
@@ -295,17 +336,7 @@
       ],
       "realmRoles": ["system_admin", "employee"],
       "clientRoles": {
-        "hrm-api": [
-          "admin",
-          "employee.read",
-          "employee.write",
-          "attendance.read",
-          "attendance.write",
-          "leave.read",
-          "leave.write",
-          "leave.approve",
-          "report.read"
-        ]
+        "hrm-api": ["admin"]
       }
     },
     {
@@ -315,6 +346,9 @@
       "lastName": "Staff",
       "enabled": true,
       "emailVerified": true,
+      "attributes": {
+        "employeeId": ["EMP002"]
+      },
       "credentials": [
         {
           "type": "password",
@@ -327,10 +361,22 @@
         "hrm-api": [
           "employee.read",
           "employee.write",
+          "department.read",
+          "department.write",
+          "team.read",
+          "team.write",
           "attendance.read",
+          "attendance.manage",
           "leave.read",
           "leave.approve",
-          "report.read"
+          "overtime.read",
+          "overtime.approve",
+          "shift.read",
+          "shift.write",
+          "notification.read",
+          "notification.write",
+          "report.read",
+          "report.export"
         ]
       }
     },
@@ -341,6 +387,9 @@
       "lastName": "Manager",
       "enabled": true,
       "emailVerified": true,
+      "attributes": {
+        "employeeId": ["EMP003"]
+      },
       "credentials": [
         {
           "type": "password",
@@ -352,11 +401,18 @@
       "clientRoles": {
         "hrm-api": [
           "employee.read",
+          "team.read",
           "attendance.read",
           "attendance.write",
           "leave.read",
           "leave.write",
-          "leave.approve"
+          "leave.approve",
+          "overtime.read",
+          "overtime.write",
+          "overtime.approve",
+          "shift.read",
+          "notification.read",
+          "report.read"
         ]
       }
     },
@@ -367,6 +423,9 @@
       "lastName": "Employee",
       "enabled": true,
       "emailVerified": true,
+      "attributes": {
+        "employeeId": ["EMP004"]
+      },
       "credentials": [
         {
           "type": "password",
@@ -381,10 +440,14 @@
           "attendance.read",
           "attendance.write",
           "leave.read",
-          "leave.write"
+          "leave.write",
+          "overtime.read",
+          "overtime.write",
+          "shift.read",
+          "notification.read"
         ]
       }
     }
   ],
-  "defaultDefaultClientScopes": ["roles", "openid", "profile", "email"]
+  "defaultDefaultClientScopes": ["openid", "profile", "email", "roles"]
 }
