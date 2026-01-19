@@ -1,0 +1,135 @@
+# =====================================================
+# HRM Infrastructure - Databases, Cache, Message Queue
+# =====================================================
+#
+# Chạy infrastructure: docker compose -f docker-compose.infra.yml up -d
+# Dừng infrastructure: docker compose -f docker-compose.infra.yml down
+# Reset data: docker compose -f docker-compose.infra.yml down -v
+#
+# =====================================================
+
+services:
+  # =====================================================
+  # DATABASE - PostgreSQL (1 instance, nhiều databases)
+  # =====================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: hrm-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================
+  # CACHE - Redis
+  # =====================================================
+  redis:
+    image: redis:7-alpine
+    container_name: hrm-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # =====================================================
+  # MESSAGE QUEUE - RabbitMQ
+  # =====================================================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: hrm-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-hrm_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-hrm_pass}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # =====================================================
+  # AUTHENTICATION - Keycloak
+  # =====================================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: hrm-keycloak
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
+      KC_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY: edge
+      KC_HEALTH_ENABLED: "true"
+    command: start-dev --import-realm
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  # =====================================================
+  # OBJECT STORAGE - MinIO
+  # =====================================================
+  minio:
+    image: minio/minio:latest
+    container_name: hrm-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minio_user}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minio_pass}
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - hrm-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  minio_data:
+
+networks:
+  hrm-network:
+    name: hrm-network
+    driver: bridge
