@@ -26,3 +26,7 @@ logs/
 
 # Temp files
 tmpclaude-*
+
+# Docker images offline (too large for Git)
+docker-images/
+*.tar

@@ -41,35 +41,88 @@ hrm/
 
 ---
 
+## 📦 Docker Images Offline (IMPORTANT)
+
+### Load images (chỉ cần làm 1 lần duy nhất)
+
+Project này sử dụng Docker images offline (file `.tar` trong folder `docker-images/`) để deploy mà **KHÔNG cần pull từ internet**.
+
+**Sau khi clone project**, load tất cả images vào Docker:
+
+#### Windows (PowerShell):
+```powershell
+cd hrm-deployment
+Get-ChildItem docker-images\*.tar | ForEach-Object { docker load -i $_.FullName }
+```
+
+#### Windows (CMD):
+```cmd
+cd hrm-deployment
+for %f in (docker-images\*.tar) do docker load -i "%f"
+```
+
+#### Linux/Mac:
+```bash
+cd hrm-deployment
+for file in docker-images/*.tar; do docker load -i "$file"; done
+```
+
+**Lưu ý:**
+- ✅ **Chỉ cần load 1 lần duy nhất** khi clone project lần đầu
+- ✅ Docker sẽ tự động dùng local images này khi chạy `docker compose up`
+- ✅ **KHÔNG cần pull từ internet** nữa
+- ❌ File `.tar` không commit vào Git (đã ignore) - cần tải riêng hoặc có sẵn
+
+---
+
 ## Quick Start (Full Stack)
 
 ### ⚠️ IMPORTANT: First-Time Setup (Required)
 
-**If you just cloned this project**, you MUST run these commands first to fix build issues:
+**If you just cloned this project**, you MUST run these commands first:
+
+**STEP 0: Load Docker images (see above section)**
+
+```bash
+# Windows (CMD)
+for %f in (docker-images\*.tar) do docker load -i "%f"
+
+# Linux/Mac
+for file in docker-images/*.tar; do docker load -i "$file"; done
+```
+
+**STEP 1: Fix API Gateway - Copy proto files**
 
 ```bash
 # Navigate to project root
 cd hrm
 
-# 1. Fix API Gateway - Copy proto files to correct location
+# Fix API Gateway - Copy proto files to correct location
 cd hrm-ApiGateway
 mkdir -p Protos
 cp src/API/Protos/employee.proto Protos/
 cp src/API/Protos/time.proto Protos/
 
-# 2. Go to deployment directory
+**STEP 2: Copy environment variables**
+
+```bash
+# Go to deployment directory
 cd ../hrm-deployment
 
-# 3. Copy environment variables
+# Copy environment variables
 cp .env.example .env
+```
 
-# 4. Now you can build and run
+**STEP 3: Build and run**
+
+```bash
 docker compose up -d --build
 ```
 
 **Why these steps are needed:**
-- API Gateway Dockerfile expects proto files in root `Protos/` folder
-- These files are not committed to git to avoid duplication
+- **Docker images:** Load từ file .tar để không cần pull từ internet
+- **API Gateway:** Dockerfile expects proto files in root `Protos/` folder
+- **Proto files:** Not committed to git to avoid duplication
 
 ### Option 1: Single Command Deployment (After Setup)
 
