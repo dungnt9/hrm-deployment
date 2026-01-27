@@ -8,37 +8,60 @@ Deployment configuration and infrastructure setup for the **HRM (Human Resource 
 
 ```
 hrm/
-├── hrm-deployment/              # This repo - Infrastructure & Config
-│   ├── docker-compose.yml       # Full stack deployment (recommended)
+├── hrm-deployment/              # Infrastructure & Config (THIS PROJECT)
+│   ├── docker-compose.yml       # Docker infrastructure (databases, redis, rabbitmq, keycloak, minio, socket)
 │   ├── docker-compose.infra.yml # Infrastructure only
 │   ├── init-db.sql              # Database initialization
-│   ├── .env                     # Environment variables
-│   ├── .env.example             # Template for .env
-│   ├── keycloak/
-│   │   └── realm-export.json    # Keycloak realm config
+│   ├── .env                     # Environment variables (auto-generated from env/)
+│   ├── env/                     # 📁 Environment file templates (for new developers)
+│   │   ├── docker-compose.env.txt    # Template for Docker Compose
+│   │   └── socket.env.txt            # Template for Socket Service
 │   ├── infrastructure/
-│   │   ├── authz/               # Authorization schema
-│   │   ├── keycloak/            # Keycloak themes & config
+│   │   ├── authz/               # Authorization service schema
+│   │   ├── keycloak/            # Keycloak SSO themes & config
 │   │   └── socket/              # WebSocket service (Node.js)
-│   └── config/
-│       └── generated/PRO/       # Production configs
+│   ├── config/
+│   │   └── generated/PRO/       # Production configuration (externalized)
+│   │       ├── api-gateway/appsettings.Production.json
+│   │       ├── employee-service/appsettings.Production.json
+│   │       ├── time-service/appsettings.Production.json
+│   │       ├── notification-service/appsettings.Production.json
+│   │       └── socket-service/.env
+│   ├── docker-images/           # Pre-packaged Docker images (.tar files)
+│   └── README.md                # This file
 │
-├── hrm-employee-service/        # Employee management (.NET 8)
-├── hrm-Time-Service/            # Attendance & time tracking (.NET 8)
-├── hrm-Notification-Service/    # Real-time notifications (.NET 8)
-├── hrm-ApiGateway/              # API Gateway (.NET 8)
-└── hrm-nextjs/                  # Frontend (Next.js 14)
+├── run-all-services.bat         # 🚀 Script to start all services (Windows)
+├── run-all-services.sh          # 🚀 Script to start all services (Linux/Mac)
+├── RUN_SERVICES.md              # 📚 Complete setup guide & troubleshooting
+│
+├── hrm-employee-service/        # Employee management (.NET 8 - local dotnet run)
+├── hrm-Time-Service/            # Attendance & time tracking (.NET 8 - local dotnet run)
+├── hrm-Notification-Service/    # Real-time notifications (.NET 8 - local dotnet run)
+├── hrm-ApiGateway/              # API Gateway (.NET 8 - local dotnet run)
+└── hrm-nextjs/                  # Frontend (Next.js 14 - local npm run dev)
 ```
 
 ---
 
 ## Prerequisites
 
+### Docker (for Infrastructure)
 - **Docker Desktop** 4.x or later
 - **Docker Compose** v2.x
-- **For Local Development:** .NET 8.0 SDK (already installed on your machine)
 - At least **8GB RAM** available for Docker
-- Ports available: 3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672
+
+### .NET (for Local Development)
+- **.NET 8.0 SDK** (required for running services locally with `dotnet run`)
+- This SDK is **already installed on your machine** ✅
+
+### Ports Required
+- Ports available: `3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672`
+
+### Deployment Model
+This project uses **Hybrid Deployment**:
+- **Infrastructure Services** (PostgreSQL, Redis, RabbitMQ, Keycloak, MinIO, Socket) → Run in **Docker Compose**
+- **.NET Services** (Employee, Time, Notification, API Gateway) → Run locally with **`dotnet run`** (no Docker needed)
+- **Frontend** (Next.js) → Run locally with **`npm run dev`** (no Docker needed)
 
 ---
 
@@ -314,6 +337,104 @@ All services are now running and ready:
 | MinIO Console | http://localhost:9001 | ✅ Ready |
 
 ---
+
+## Environment Files & Setup Templates
+
+### Folder: `hrm-deployment/env/`
+
+This folder contains reusable environment file templates for new developers:
+
+```
+env/
+├── docker-compose.env.txt          # Template for Docker Compose environment
+└── socket.env.txt                  # Template for Socket Service configuration
+```
+
+**Usage:**
+- Copy `docker-compose.env.txt` → `hrm-deployment/.env` (for Docker services)
+- Copy `socket.env.txt` → `config/generated/PRO/socket-service/.env` (for Socket Service)
+
+These `.txt` files are committed to Git, but the actual `.env` files are in `.gitignore` for security.
+
+---
+
+## Helper Scripts for Running Services
+
+### Automated Startup Scripts
+
+To make running all services easier, two helper scripts are provided in the project root:
+
+#### Windows: `run-all-services.bat`
+
+```bash
+cd <project-root>
+run-all-services.bat
+```
+
+This script automatically:
+1. Opens 5 new Command Prompt windows
+2. Starts each .NET service with `dotnet restore && dotnet run`
+3. Starts the Frontend with `npm install && npm run dev`
+4. Shows all logs in real-time
+
+**Perfect for development!** Just run once and all services start in separate terminals.
+
+#### Linux/Mac: `run-all-services.sh`
+
+```bash
+cd <project-root>
+chmod +x run-all-services.sh
+./run-all-services.sh
+```
+
+Same functionality as the Windows batch script, but for Unix-like systems.
+
+---
+
+## Quick Reference: Running All Services
+
+### Method 1: Automatic (Recommended)
+
+```bash
+# Windows
+run-all-services.bat
+
+# Linux/Mac
+./run-all-services.sh
+```
+
+### Method 2: Manual - 5 Separate Terminals
+
+```bash
+# Terminal 1: Employee Service
+cd hrm-employee-service && dotnet restore && dotnet run
+
+# Terminal 2: Time Service
+cd hrm-Time-Service && dotnet restore && dotnet run
+
+# Terminal 3: Notification Service
+cd hrm-Notification-Service && dotnet restore && dotnet run
+
+# Terminal 4: API Gateway
+cd hrm-ApiGateway && dotnet restore && dotnet run
+
+# Terminal 5: Frontend
+cd hrm-nextjs && npm install && npm run dev
+```
+
+---
+
+## 📚 Complete Documentation: RUN_SERVICES.md
+
+For comprehensive setup guide, troubleshooting, and detailed instructions, see: **[RUN_SERVICES.md](../RUN_SERVICES.md)**
+
+This file contains:
+- ✅ Step-by-step setup for both automatic and manual methods
+- ✅ Verification steps to ensure all services are running
+- ✅ Login credentials for all services
+- ✅ Troubleshooting guide for common issues
+- ✅ Development tips and best practices
+- ✅ How to stop services and reset everything
 
 ---
 
