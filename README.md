@@ -46,19 +46,24 @@ hrm/
 ## Prerequisites
 
 ### Docker (for Infrastructure)
+
 - **Docker Desktop** 4.x or later
 - **Docker Compose** v2.x
 - At least **8GB RAM** available for Docker
 
 ### .NET (for Local Development)
+
 - **.NET 8.0 SDK** (required for running services locally with `dotnet run`)
 - This SDK is **already installed on your machine** ✅
 
 ### Ports Required
+
 - Ports available: `3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672`
 
 ### Deployment Model
+
 This project uses **Hybrid Deployment**:
+
 - **Infrastructure Services** (PostgreSQL, Redis, RabbitMQ, Keycloak, MinIO, Socket) → Run in **Docker Compose**
 - **.NET Services** (Employee, Time, Notification, API Gateway) → Run locally with **`dotnet run`** (no Docker needed)
 - **Frontend** (Next.js) → Run locally with **`npm run dev`** (no Docker needed)
@@ -67,23 +72,31 @@ This project uses **Hybrid Deployment**:
 
 ## 🚀 First-Time Setup (After Cloning from GitHub)
 
+```bash
+docker rm -f $(docker ps -aq)
+docker rmi -f $(docker images -aq)
+```
+
 ### STEP 1: Load Docker Images (Offline - No Internet Needed)
 
 After cloning the project, load all pre-packaged Docker images:
 
 #### Windows (PowerShell):
+
 ```powershell
 cd hrm-deployment
 Get-ChildItem docker-images\*.tar | ForEach-Object { docker load -i $_.FullName }
 ```
 
 #### Windows (CMD):
+
 ```cmd
 cd hrm-deployment
 for %f in (docker-images\*.tar) do docker load -i "%f"
 ```
 
 #### Linux/Mac:
+
 ```bash
 cd hrm-deployment
 for file in docker-images/*.tar; do docker load -i "$file"; done
@@ -129,6 +142,7 @@ docker compose up -d --build
 ```
 
 This will start:
+
 - 5 PostgreSQL databases (employee, time, notification, keycloak, authz)
 - Redis, RabbitMQ, MinIO
 - Keycloak SSO
@@ -137,6 +151,7 @@ This will start:
 ### STEP 4: Run .NET Services (Choose One Option)
 
 #### Option A: Run in Docker (Full Stack)
+
 ```bash
 # Keep docker compose running from STEP 3
 # .NET services will start automatically as part of docker compose up -d --build
@@ -174,6 +189,7 @@ npm run dev
 ```
 
 **Note:** When running locally, make sure:
+
 - All .NET services have access to infrastructure (databases, Redis, RabbitMQ, Keycloak)
 - Ports 5001-5005, 5000, and 3000 are available on your machine
 - Update `appsettings.Production.json` connection strings to point to `localhost` instead of Docker container names
@@ -189,24 +205,28 @@ Project này sử dụng Docker images offline (file `.tar` trong folder `docker
 **Sau khi clone project**, load tất cả images vào Docker:
 
 #### Windows (PowerShell):
+
 ```powershell
 cd hrm-deployment
 Get-ChildItem docker-images\*.tar | ForEach-Object { docker load -i $_.FullName }
 ```
 
 #### Windows (CMD):
+
 ```cmd
 cd hrm-deployment
 for %f in (docker-images\*.tar) do docker load -i "%f"
 ```
 
 #### Linux/Mac:
+
 ```bash
 cd hrm-deployment
 for file in docker-images/*.tar; do docker load -i "$file"; done
 ```
 
 **Lưu ý:**
+
 - ✅ **Chỉ cần load 1 lần duy nhất** khi clone project lần đầu
 - ✅ Docker sẽ tự động dùng local images này khi chạy `docker compose up`
 - ✅ **KHÔNG cần pull từ internet** nữa
@@ -271,6 +291,7 @@ docker compose up -d
 ```
 
 Wait for all services to be healthy:
+
 ```bash
 # Check status
 docker compose ps
@@ -284,6 +305,7 @@ docker compose logs -f
 Open 5 separate terminals and run:
 
 **Terminal 1: Employee Service**
+
 ```bash
 cd hrm-employee-service
 dotnet restore
@@ -292,6 +314,7 @@ dotnet run
 ```
 
 **Terminal 2: Time Service**
+
 ```bash
 cd hrm-Time-Service
 dotnet restore
@@ -300,6 +323,7 @@ dotnet run
 ```
 
 **Terminal 3: Notification Service**
+
 ```bash
 cd hrm-Notification-Service
 dotnet restore
@@ -308,6 +332,7 @@ dotnet run
 ```
 
 **Terminal 4: API Gateway**
+
 ```bash
 cd hrm-ApiGateway
 dotnet restore
@@ -316,6 +341,7 @@ dotnet run
 ```
 
 **Terminal 5: Frontend (Next.js)**
+
 ```bash
 cd hrm-nextjs
 npm install
@@ -327,14 +353,14 @@ npm run dev
 
 All services are now running and ready:
 
-| Service | URL | Status |
-|---------|-----|--------|
-| Frontend | http://localhost:3000 | ✅ Ready |
-| API Gateway | http://localhost:5000 | ✅ Ready |
-| Keycloak Admin | http://localhost:8080 | ✅ Ready |
-| Socket Service | http://localhost:5100 | ✅ Ready |
+| Service             | URL                    | Status   |
+| ------------------- | ---------------------- | -------- |
+| Frontend            | http://localhost:3000  | ✅ Ready |
+| API Gateway         | http://localhost:5000  | ✅ Ready |
+| Keycloak Admin      | http://localhost:8080  | ✅ Ready |
+| Socket Service      | http://localhost:5100  | ✅ Ready |
 | RabbitMQ Management | http://localhost:15672 | ✅ Ready |
-| MinIO Console | http://localhost:9001 | ✅ Ready |
+| MinIO Console       | http://localhost:9001  | ✅ Ready |
 
 ---
 
@@ -351,6 +377,7 @@ env/
 ```
 
 **Usage:**
+
 - Copy `docker-compose.env.txt` → `hrm-deployment/.env` (for Docker services)
 - Copy `socket.env.txt` → `config/generated/PRO/socket-service/.env` (for Socket Service)
 
@@ -372,6 +399,7 @@ run-all-services.bat
 ```
 
 This script automatically:
+
 1. Opens 5 new Command Prompt windows
 2. Starts each .NET service with `dotnet restore && dotnet run`
 3. Starts the Frontend with `npm install && npm run dev`
@@ -429,6 +457,7 @@ cd hrm-nextjs && npm install && npm run dev
 For comprehensive setup guide, troubleshooting, and detailed instructions, see: **[RUN_SERVICES.md](../RUN_SERVICES.md)**
 
 This file contains:
+
 - ✅ Step-by-step setup for both automatic and manual methods
 - ✅ Verification steps to ensure all services are running
 - ✅ Login credentials for all services
@@ -479,30 +508,30 @@ Employee Service     Time Service      Notification Service  API Gateway    Fron
 
 ### Docker Infrastructure Services
 
-| Service | Port | Type | Status |
-|---------|------|------|--------|
-| PostgreSQL Employee DB | 5432 | TCP | Docker |
-| PostgreSQL Time DB | 5433 | TCP | Docker |
-| PostgreSQL Notification DB | 5434 | TCP | Docker |
-| PostgreSQL Keycloak DB | 5435 | TCP | Docker |
-| PostgreSQL Authz DB | 5436 | TCP | Docker |
-| Redis | 6379 | TCP | Docker |
-| RabbitMQ Server | 5672 | TCP | Docker |
-| RabbitMQ Management UI | 15672 | HTTP | Docker |
-| Keycloak SSO | 8080 | HTTP | Docker |
-| MinIO API | 9000 | HTTP | Docker |
-| MinIO Console | 9001 | HTTP | Docker |
-| Socket Service | 5100 | WebSocket | Docker (Node.js) |
+| Service                    | Port  | Type      | Status           |
+| -------------------------- | ----- | --------- | ---------------- |
+| PostgreSQL Employee DB     | 5432  | TCP       | Docker           |
+| PostgreSQL Time DB         | 5433  | TCP       | Docker           |
+| PostgreSQL Notification DB | 5434  | TCP       | Docker           |
+| PostgreSQL Keycloak DB     | 5435  | TCP       | Docker           |
+| PostgreSQL Authz DB        | 5436  | TCP       | Docker           |
+| Redis                      | 6379  | TCP       | Docker           |
+| RabbitMQ Server            | 5672  | TCP       | Docker           |
+| RabbitMQ Management UI     | 15672 | HTTP      | Docker           |
+| Keycloak SSO               | 8080  | HTTP      | Docker           |
+| MinIO API                  | 9000  | HTTP      | Docker           |
+| MinIO Console              | 9001  | HTTP      | Docker           |
+| Socket Service             | 5100  | WebSocket | Docker (Node.js) |
 
 ### Local Development Services (dotnet run / npm run dev)
 
-| Service | HTTP Port | gRPC Port | Process |
-|---------|-----------|-----------|---------|
-| Employee Service | 5001 | 5002 | dotnet run |
-| Time Service | 5003 | 5004 | dotnet run |
-| Notification Service | 5005 | - | dotnet run |
-| API Gateway | 5000 | - | dotnet run |
-| Frontend | 3000 | - | npm run dev |
+| Service              | HTTP Port | gRPC Port | Process     |
+| -------------------- | --------- | --------- | ----------- |
+| Employee Service     | 5001      | 5002      | dotnet run  |
+| Time Service         | 5003      | 5004      | dotnet run  |
+| Notification Service | 5005      | -         | dotnet run  |
+| API Gateway          | 5000      | -         | dotnet run  |
+| Frontend             | 3000      | -         | npm run dev |
 
 **Note:** Each service runs as a separate process on your local machine, NOT in Docker containers.
 
@@ -512,37 +541,37 @@ Employee Service     Time Service      Notification Service  API Gateway    Fron
 
 ### Keycloak Admin
 
-| Field | Value |
-|-------|-------|
-| URL | http://localhost:8080 |
-| Username | admin |
-| Password | admin |
+| Field    | Value                 |
+| -------- | --------------------- |
+| URL      | http://localhost:8080 |
+| Username | admin                 |
+| Password | admin                 |
 
 ### Application Users
 
-| Role | Username | Password |
-|------|----------|----------|
-| Admin | admin | admin123 |
-| HR | hr_user | hr123 |
-| Manager | manager_user | manager123 |
+| Role     | Username      | Password    |
+| -------- | ------------- | ----------- |
+| Admin    | admin         | admin123    |
+| HR       | hr_user       | hr123       |
+| Manager  | manager_user  | manager123  |
 | Employee | employee_user | employee123 |
 
 ### Database Credentials
 
-| Database | Username | Password | Database Name |
-|----------|----------|----------|---------------|
-| Employee DB | employee_user | employee_pass | employee_db |
-| Time DB | time_user | time_pass | time_db |
+| Database        | Username          | Password          | Database Name   |
+| --------------- | ----------------- | ----------------- | --------------- |
+| Employee DB     | employee_user     | employee_pass     | employee_db     |
+| Time DB         | time_user         | time_pass         | time_db         |
 | Notification DB | notification_user | notification_pass | notification_db |
-| Keycloak DB | keycloak_user | keycloak_pass | keycloak_db |
-| Authz DB | authz_user | authz_pass | authz_db |
+| Keycloak DB     | keycloak_user     | keycloak_pass     | keycloak_db     |
+| Authz DB        | authz_user        | authz_pass        | authz_db        |
 
 ### Infrastructure Services
 
-| Service | Username | Password |
-|---------|----------|----------|
-| RabbitMQ | hrm_user | hrm_pass |
-| MinIO | minio_user | minio_pass |
+| Service  | Username   | Password   |
+| -------- | ---------- | ---------- |
+| RabbitMQ | hrm_user   | hrm_pass   |
+| MinIO    | minio_user | minio_pass |
 
 ---
 
@@ -644,6 +673,7 @@ config/
 ### How Configuration Works
 
 1. **Docker Volumes Mount:** Configuration files are mounted as read-only volumes into containers:
+
    ```yaml
    volumes:
      - ./config/generated/PRO/employee-service/appsettings.Production.json:/app/appsettings.Production.json:ro
@@ -687,14 +717,14 @@ NODE_ENV=production
 
 Global environment variables are in `hrm-deployment/.env` (copied from `env/docker-compose.env.txt`).
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `POSTGRES_PASSWORD` | PostgreSQL password | (per database) |
-| `RABBITMQ_PASSWORD` | RabbitMQ password | hrm_pass |
-| `KEYCLOAK_ADMIN_PASSWORD` | Keycloak admin password | admin |
-| `API_GATEWAY_PORT` | API Gateway port | 5000 |
-| `FRONTEND_PORT` | Frontend port | 3000 |
-| `SOCKET_PORT` | Socket Service port | 5100 |
+| Variable                  | Description             | Default        |
+| ------------------------- | ----------------------- | -------------- |
+| `POSTGRES_PASSWORD`       | PostgreSQL password     | (per database) |
+| `RABBITMQ_PASSWORD`       | RabbitMQ password       | hrm_pass       |
+| `KEYCLOAK_ADMIN_PASSWORD` | Keycloak admin password | admin          |
+| `API_GATEWAY_PORT`        | API Gateway port        | 5000           |
+| `FRONTEND_PORT`           | Frontend port           | 3000           |
+| `SOCKET_PORT`             | Socket Service port     | 5100           |
 
 ---
 
@@ -770,6 +800,7 @@ docker compose logs -f keycloak
 **Symptoms:** Service exits immediately or shows errors
 
 **Diagnosis:**
+
 ```bash
 # Check detailed error messages
 cd hrm-employee-service
@@ -780,6 +811,7 @@ cat config/generated/PRO/employee-service/appsettings.Production.json
 ```
 
 **Solutions:**
+
 - Ensure all Docker infrastructure is running: `docker compose ps`
 - Verify connection strings use correct hostnames (localhost for local, container names for Docker)
 - Wait for Keycloak to be fully ready before starting services
@@ -789,6 +821,7 @@ cat config/generated/PRO/employee-service/appsettings.Production.json
 **Error:** `Npgsql.NpgsqlException: unable to connect to server`
 
 **Solution:**
+
 ```bash
 # 1. Ensure PostgreSQL is running
 docker compose ps postgres-employee
@@ -806,6 +839,7 @@ docker compose logs postgres-employee
 **Error:** `System.Net.Sockets.SocketException: Connection refused`
 
 **Solution:**
+
 ```bash
 # 1. Ensure RabbitMQ is running
 docker compose ps rabbitmq
@@ -824,6 +858,7 @@ docker compose logs rabbitmq | grep "accepting connections"
 **Error:** Services fail trying to connect to Keycloak
 
 **Solution:**
+
 ```bash
 # 1. Check Keycloak startup logs
 docker compose logs keycloak
@@ -842,6 +877,7 @@ docker compose logs -f keycloak | grep -i "ready\|listening"
 **Error:** Frontend cannot connect to Socket Service
 
 **Solution:**
+
 ```bash
 # 1. Verify Socket Service is running in Docker
 docker compose ps socket-service
@@ -896,6 +932,7 @@ For faster development cycle, you can run .NET services locally using `dotnet ru
 ### Running Services Locally
 
 1. **Start Infrastructure in Docker:**
+
    ```bash
    cd hrm-deployment
    docker compose up -d
@@ -918,6 +955,7 @@ For faster development cycle, you can run .NET services locally using `dotnet ru
 3. **Run Each Service in Separate Terminal:**
 
    **Employee Service:**
+
    ```bash
    cd hrm-employee-service
    dotnet restore
@@ -926,6 +964,7 @@ For faster development cycle, you can run .NET services locally using `dotnet ru
    ```
 
    **Time Service:**
+
    ```bash
    cd hrm-Time-Service
    dotnet restore
@@ -934,6 +973,7 @@ For faster development cycle, you can run .NET services locally using `dotnet ru
    ```
 
    **Notification Service:**
+
    ```bash
    cd hrm-Notification-Service
    dotnet restore
@@ -942,6 +982,7 @@ For faster development cycle, you can run .NET services locally using `dotnet ru
    ```
 
    **API Gateway:**
+
    ```bash
    cd hrm-ApiGateway
    dotnet restore
@@ -950,6 +991,7 @@ For faster development cycle, you can run .NET services locally using `dotnet ru
    ```
 
    **Frontend (Node.js):**
+
    ```bash
    cd hrm-nextjs
    npm install
@@ -980,15 +1022,15 @@ infrastructure/socket/
 
 ### Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| SERVER_PORT | Socket server port | 5001 |
-| AUTH_API | Auth verification endpoint | http://api-gateway:8080/api/auth/me |
-| RABBITMQ_HOST | RabbitMQ host | rabbitmq |
-| RABBITMQ_PORT | RabbitMQ port | 5672 |
-| RABBITMQ_USER | RabbitMQ username | hrm_user |
-| RABBITMQ_PASSWORD | RabbitMQ password | hrm_pass |
-| RABBITMQ_WORK_QUEUE_NAME | Queue name | hrm_socket_work_queue |
+| Variable                 | Description                | Default                             |
+| ------------------------ | -------------------------- | ----------------------------------- |
+| SERVER_PORT              | Socket server port         | 5001                                |
+| AUTH_API                 | Auth verification endpoint | http://api-gateway:8080/api/auth/me |
+| RABBITMQ_HOST            | RabbitMQ host              | rabbitmq                            |
+| RABBITMQ_PORT            | RabbitMQ port              | 5672                                |
+| RABBITMQ_USER            | RabbitMQ username          | hrm_user                            |
+| RABBITMQ_PASSWORD        | RabbitMQ password          | hrm_pass                            |
+| RABBITMQ_WORK_QUEUE_NAME | Queue name                 | hrm_socket_work_queue               |
 
 ---
 
