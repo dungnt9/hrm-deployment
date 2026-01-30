@@ -1,437 +1,279 @@
-# HRM Deployment
+# HRM - Human Resource Management System
 
-Deployment configuration and infrastructure setup for the **HRM (Human Resource Management)** system.
+Hệ thống quản lý nhân sự microservices, hỗ trợ quản lý nhân viên, chấm công, nghỉ phép, tăng ca và thông báo real-time.
 
 ---
 
-## Architecture Overview
+## Mục lục
+
+- [Kiến trúc tổng thể](#kiến-trúc-tổng-thể)
+- [Tech Stack](#tech-stack)
+- [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+- [Prerequisites](#prerequisites)
+- [Hướng dẫn setup local](#hướng-dẫn-setup-local)
+- [Hướng dẫn chạy services](#hướng-dẫn-chạy-services)
+- [Port Reference](#port-reference)
+- [Credentials mặc định](#credentials-mặc-định)
+- [Chi tiết từng Service](#chi-tiết-từng-service)
+  - [API Gateway](#api-gateway)
+  - [Employee Service](#employee-service)
+  - [Time Service](#time-service)
+  - [Notification Service](#notification-service)
+  - [Socket Service](#socket-service)
+  - [Keycloak (SSO)](#keycloak-sso)
+  - [Authorization Service](#authorization-service)
+- [Cấu hình môi trường](#cấu-hình-môi-trường)
+- [Docker Compose Commands](#docker-compose-commands)
+- [Production Deployment](#production-deployment)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Kiến trúc tổng thể
+
+### Deployment Model: Hybrid
+
+- **Infrastructure** (PostgreSQL, Redis, RabbitMQ, Keycloak, MinIO, Socket Service) chạy trong **Docker Compose**
+- **Backend .NET services** (Employee, Time, Notification, API Gateway) chạy local với **`dotnet run`**
+- **Frontend** (Next.js) chạy local với **`npm run dev`**
+
+### System Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              FRONTEND (Next.js)                              │
+│                               http://localhost:3000                          │
+└───────────────────────────────────┬──────────────────────────────────────────┘
+                                    │ REST / GraphQL / WebSocket
+                                    ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            API GATEWAY (.NET 8)                              │
+│                            http://localhost:5000                             │
+│  Controllers (REST)  │  GraphQL (HotChocolate)  │  Swagger  │  SignalR Hub  │
+│                      │                          │ /swagger  │               │
+│                      └──────── Keycloak JWT Validator ───────┘              │
+└──────────────────────────┬───────────────┬────────────────┬──────────────────┘
+                           │               │                │
+                     gRPC  │         gRPC  │          HTTP  │
+                           ▼               ▼                ▼
+                ┌─────────────────┐ ┌─────────────────┐ ┌──────────────────┐
+                │Employee Service │ │  Time Service   │ │Notification Svc  │
+                │  :5001 / :5002  │ │  :5003 / :5004  │ │     :5005        │
+                └────────┬────────┘ └────────┬────────┘ └────────┬─────────┘
+                         │                   │                   │
+                         ▼                   ▼                   ▼
+                ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+                │postgres-employee│ │  postgres-time  │ │postgres-notif   │
+                │    :5432        │ │    :5433        │ │    :5434        │
+                └─────────────────┘ └─────────────────┘ └─────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     Docker Compose Infrastructure                            │
+│  Redis :6379 │ RabbitMQ :5672/:15672 │ Keycloak :8080 │ MinIO :9000/:9001  │
+│  postgres-keycloak :5435 │ postgres-authz :5436 │ Socket Service :5100     │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Communication Flow
+
+| From | To | Protocol |
+|------|----|----------|
+| Frontend | API Gateway | REST, GraphQL, WebSocket |
+| API Gateway | Employee Service | gRPC |
+| API Gateway | Time Service | gRPC |
+| API Gateway | Notification Service | HTTP |
+| API Gateway | Keycloak | HTTP (JWT validation) |
+| Time Service | Employee Service | gRPC (validate manager) |
+| Time Service | RabbitMQ | AMQP (Outbox pattern) |
+| Notification Service | RabbitMQ | AMQP (consumer) |
+| Socket Service | RabbitMQ | AMQP (consumer) |
+| Frontend | Socket Service | WebSocket (Socket.IO) |
+
+---
+
+## Tech Stack
+
+### Backend (.NET 8)
+
+| Technology | Purpose |
+|------------|---------|
+| ASP.NET Core 8.0 | Web framework |
+| Entity Framework Core 8.0 | ORM |
+| gRPC | Inter-service communication |
+| MediatR 12.x | CQRS pattern |
+| AutoMapper 13.x | Object mapping |
+| FluentValidation 11.x | Input validation |
+| HotChocolate 13.x | GraphQL (API Gateway) |
+| SignalR 8.0 | WebSocket (Notification Service) |
+| Hangfire | Background jobs (Time Service) |
+| Serilog | Structured logging |
+
+### Frontend
+
+| Technology | Purpose |
+|------------|---------|
+| Next.js 14.0.4 | React framework |
+| TypeScript 5 | Type safety |
+| MUI (Material UI) 5.15 | UI components |
+| Redux Toolkit 2.0 | State management |
+| Apollo Client 3.8 | GraphQL client |
+| keycloak-js 23.0 | SSO integration |
+| SignalR Client 8.0 | Real-time notifications |
+| Recharts 2.10 | Charts |
+
+### Infrastructure
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| PostgreSQL | 16-alpine | Database (5 instances) |
+| Redis | 7-alpine | Caching (attendance status) |
+| RabbitMQ | 3-management-alpine | Event messaging |
+| Keycloak | 23.0 | SSO / OAuth2 / OIDC |
+| MinIO | latest | Object storage |
+| Socket.IO (Node.js) | - | Real-time WebSocket |
+
+---
+
+## Cấu trúc thư mục
 
 ```
 hrm/
-├── hrm-deployment/              # Infrastructure & Config (THIS PROJECT)
-│   ├── docker-compose.yml       # Docker infrastructure (databases, redis, rabbitmq, keycloak, minio, socket)
-│   ├── docker-compose.infra.yml # Infrastructure only
-│   ├── init-db.sql              # Database initialization
-│   ├── .env                     # Environment variables (auto-generated from env/)
-│   ├── env/                     # 📁 Environment file templates (for new developers)
-│   │   ├── docker-compose.env.txt    # Template for Docker Compose
-│   │   └── socket.env.txt            # Template for Socket Service
+├── hrm-deployment/                # Infrastructure & deployment config
+│   ├── docker-compose.yml         # Docker infrastructure
+│   ├── .env                       # Environment variables (from env/*.txt)
+│   ├── env/                       # Environment file templates
+│   │   ├── docker-compose.env.txt
+│   │   └── socket.env.txt
 │   ├── infrastructure/
-│   │   ├── authz/               # Authorization service schema
-│   │   ├── keycloak/            # Keycloak SSO themes & config
-│   │   └── socket/              # WebSocket service (Node.js)
-│   ├── config/
-│   │   └── generated/PRO/       # Production configuration (externalized)
-│   │       ├── api-gateway/appsettings.Production.json
-│   │       ├── employee-service/appsettings.Production.json
-│   │       ├── time-service/appsettings.Production.json
-│   │       ├── notification-service/appsettings.Production.json
-│   │       └── socket-service/.env
-│   ├── docker-images/           # Pre-packaged Docker images (.tar files)
-│   └── README.md                # This file
+│   │   ├── authz/                 # Authorization schema (SQL)
+│   │   ├── keycloak/              # Keycloak realm, themes
+│   │   └── socket/                # Socket Service (Node.js)
+│   ├── config/generated/PRO/      # Production config files
+│   │   ├── api-gateway/appsettings.Production.json
+│   │   ├── employee-service/appsettings.Production.json
+│   │   ├── time-service/appsettings.Production.json
+│   │   ├── notification-service/appsettings.Production.json
+│   │   └── socket-service/.env
+│   └── docker-images/             # Pre-packaged Docker images (.tar)
 │
-├── run-all-services.bat         # 🚀 Script to start all services (Windows)
-├── run-all-services.sh          # 🚀 Script to start all services (Linux/Mac)
-├── RUN_SERVICES.md              # 📚 Complete setup guide & troubleshooting
+├── hrm-ApiGateway/                # API Gateway (.NET 8)
+│   └── src/
+│       ├── API/                   # Controllers, GraphQL, Hubs, Protos
+│       └── Application/           # gRPC client services
 │
-├── hrm-employee-service/        # Employee management (.NET 8 - local dotnet run)
-├── hrm-Time-Service/            # Attendance & time tracking (.NET 8 - local dotnet run)
-├── hrm-Notification-Service/    # Real-time notifications (.NET 8 - local dotnet run)
-├── hrm-ApiGateway/              # API Gateway (.NET 8 - local dotnet run)
-└── hrm-nextjs/                  # Frontend (Next.js 14 - local npm run dev)
+├── hrm-employee-service/          # Employee Service (.NET 8)
+│   └── src/
+│       ├── API/                   # gRPC services
+│       ├── Application/           # CQRS commands/queries
+│       ├── Domain/                # Entities, Enums
+│       └── Infrastructure/        # EF Core, Repositories
+│
+├── hrm-Time-Service/              # Time Service (.NET 8)
+│   └── src/
+│       ├── API/                   # gRPC services, BackgroundServices
+│       ├── Application/           # CQRS (Attendance, Leave, Overtime)
+│       ├── Domain/                # Entities, Enums
+│       └── Infrastructure/        # EF Core, RabbitMQ, Redis
+│
+├── hrm-Notification-Service/      # Notification Service (.NET 8)
+│   └── src/
+│       ├── API/                   # Controllers, SignalR Hub, RabbitMQ consumer
+│       ├── Application/           # CQRS commands/queries
+│       ├── Domain/                # Entities, Enums
+│       └── Infrastructure/        # EF Core
+│
+├── hrm-nextjs/                    # Frontend (Next.js 14)
+│
+├── run-all-services.bat           # Start all services (Windows)
+├── run-all-services.sh            # Start all services (Linux/Mac)
+└── RUN_SERVICES.md                # (Legacy) setup guide
 ```
+
+Tất cả .NET services sử dụng **Clean Architecture 4-Layer**: API → Application → Domain → Infrastructure.
 
 ---
 
 ## Prerequisites
 
-### Docker (for Infrastructure)
-
-- **Docker Desktop** 4.x or later
-- **Docker Compose** v2.x
-- At least **8GB RAM** available for Docker
-
-### .NET (for Local Development)
-
-- **.NET 8.0 SDK** (required for running services locally with `dotnet run`)
-- This SDK is **already installed on your machine** ✅
-
-### Ports Required
-
-- Ports available: `3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672`
-
-### Deployment Model
-
-This project uses **Hybrid Deployment**:
-
-- **Infrastructure Services** (PostgreSQL, Redis, RabbitMQ, Keycloak, MinIO, Socket) → Run in **Docker Compose**
-- **.NET Services** (Employee, Time, Notification, API Gateway) → Run locally with **`dotnet run`** (no Docker needed)
-- **Frontend** (Next.js) → Run locally with **`npm run dev`** (no Docker needed)
+- **Docker Desktop** 4.x+ (với Docker Compose v2)
+- **.NET 8.0 SDK**
+- **Node.js** (cho frontend)
+- RAM tối thiểu **8GB** cho Docker
+- Ports khả dụng: `3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672`
 
 ---
 
-## 🚀 First-Time Setup (After Cloning from GitHub)
+## Hướng dẫn setup local
 
-```bash
-docker rm -f $(docker ps -aq)
-docker rmi -f $(docker images -aq)
-```
+### Step 1: Load Docker Images (chỉ lần đầu)
 
-### STEP 1: Load Docker Images (Offline - No Internet Needed)
+Project sử dụng Docker images offline (`.tar` files) — không cần internet.
 
-After cloning the project, load all pre-packaged Docker images:
-
-#### Windows (PowerShell):
-
+**Windows (PowerShell):**
 ```powershell
 cd hrm-deployment
 Get-ChildItem docker-images\*.tar | ForEach-Object { docker load -i $_.FullName }
 ```
 
-#### Windows (CMD):
-
+**Windows (CMD):**
 ```cmd
 cd hrm-deployment
 for %f in (docker-images\*.tar) do docker load -i "%f"
 ```
 
-#### Linux/Mac:
-
+**Linux/Mac:**
 ```bash
 cd hrm-deployment
 for file in docker-images/*.tar; do docker load -i "$file"; done
 ```
 
-### STEP 2: Copy Environment Files
-
-#### For Docker Stack Deployment:
+### Step 2: Copy environment files
 
 ```bash
 cd hrm-deployment
-
-# Copy socket service environment
-cp env/socket.env.txt config/generated/PRO/socket-service/.env
-
-# Copy docker-compose environment
 cp env/docker-compose.env.txt .env
+cp env/socket.env.txt config/generated/PRO/socket-service/.env
 ```
 
-#### For Local .NET Development (dotnet run):
-
-**Only needed if you plan to run .NET services locally without Docker:**
-
-```bash
-# Copy the .env.txt file and customize for local settings
-cp env/docker-compose.env.txt .env.local
-
-# Edit .env.local to point to local/Docker infrastructure:
-# - POSTGRES_HOST=localhost (instead of container names)
-# - REDIS_HOST=localhost
-# - RABBITMQ_HOST=localhost
-# - KEYCLOAK_HOST=localhost
-# etc.
-```
-
-### STEP 3: Run Infrastructure Services
-
-Start all infrastructure services (databases, Redis, RabbitMQ, Keycloak, MinIO, Socket Service) in Docker:
+### Step 3: Khởi động infrastructure
 
 ```bash
 cd hrm-deployment
 docker compose up -d --build
 ```
 
-This will start:
-
-- 5 PostgreSQL databases (employee, time, notification, keycloak, authz)
-- Redis, RabbitMQ, MinIO
-- Keycloak SSO
-- Socket Service (WebSocket)
-
-### STEP 4: Run .NET Services (Choose One Option)
-
-#### Option A: Run in Docker (Full Stack)
+Đợi tất cả containers healthy (Keycloak mất ~60-90 giây):
 
 ```bash
-# Keep docker compose running from STEP 3
-# .NET services will start automatically as part of docker compose up -d --build
-```
-
-#### Option B: Run Locally with dotnet run (Development Friendly)
-
-**If you prefer running .NET services locally on your machine:**
-
-```bash
-# Terminal 1 - Employee Service
-cd hrm-employee-service
-dotnet restore
-dotnet run
-
-# Terminal 2 - Time Service
-cd hrm-Time-Service
-dotnet restore
-dotnet run
-
-# Terminal 3 - Notification Service
-cd hrm-Notification-Service
-dotnet restore
-dotnet run
-
-# Terminal 4 - API Gateway
-cd hrm-ApiGateway
-dotnet restore
-dotnet run
-
-# Terminal 5 - Frontend
-cd hrm-nextjs
-npm install
-npm run dev
-```
-
-**Note:** When running locally, make sure:
-
-- All .NET services have access to infrastructure (databases, Redis, RabbitMQ, Keycloak)
-- Ports 5001-5005, 5000, and 3000 are available on your machine
-- Update `appsettings.Production.json` connection strings to point to `localhost` instead of Docker container names
-
----
-
-## 📦 Docker Images Offline (IMPORTANT)
-
-### Load images (chỉ cần làm 1 lần duy nhất)
-
-Project này sử dụng Docker images offline (file `.tar` trong folder `docker-images/`) để deploy mà **KHÔNG cần pull từ internet**.
-
-**Sau khi clone project**, load tất cả images vào Docker:
-
-#### Windows (PowerShell):
-
-```powershell
-cd hrm-deployment
-Get-ChildItem docker-images\*.tar | ForEach-Object { docker load -i $_.FullName }
-```
-
-#### Windows (CMD):
-
-```cmd
-cd hrm-deployment
-for %f in (docker-images\*.tar) do docker load -i "%f"
-```
-
-#### Linux/Mac:
-
-```bash
-cd hrm-deployment
-for file in docker-images/*.tar; do docker load -i "$file"; done
-```
-
-**Lưu ý:**
-
-- ✅ **Chỉ cần load 1 lần duy nhất** khi clone project lần đầu
-- ✅ Docker sẽ tự động dùng local images này khi chạy `docker compose up`
-- ✅ **KHÔNG cần pull từ internet** nữa
-- ❌ File `.tar` không commit vào Git (đã ignore) - cần tải riêng hoặc có sẵn
-
----
-
-## Quick Start
-
-### Architecture Overview
-
-This project uses a **hybrid deployment model**:
-
-- **Infrastructure & Services** → Docker Compose (Databases, Redis, RabbitMQ, Keycloak, MinIO, Socket)
-- **.NET Services & Frontend** → Local Development (dotnet run, npm run dev)
-
-```
-┌─────────────────────────────────────────┐
-│     Docker Compose Infrastructure       │
-│  (postgres, redis, rabbitmq, keycloak)  │
-└─────────────────────────────────────────┘
-           ↑
-      ┌────┴────┬────────────┬──────────┐
-      ▼         ▼            ▼          ▼
-  Employee    Time      Notification  API Gateway
-   Service   Service     Service       (dotnet run)
-  (dotnet)   (dotnet)    (dotnet)
-      ↑         ↑            ↑          ↑
-      └─────────┴────────────┴──────────┘
-           Socket Service (Node.js)
-           Frontend (Next.js)
-```
-
-### Quick Start Steps
-
-**Step 1: Load Docker Images (One Time Only)**
-
-```bash
-cd hrm-deployment
-
-# Windows (PowerShell)
-Get-ChildItem docker-images\*.tar | ForEach-Object { docker load -i $_.FullName }
-
-# Windows (CMD)
-for %f in (docker-images\*.tar) do docker load -i "%f"
-
-# Linux/Mac
-for file in docker-images/*.tar; do docker load -i "$file"; done
-```
-
-**Step 2: Start Infrastructure Services**
-
-```bash
-cd hrm-deployment
-
-# Copy environment file
-cp env/docker-compose.env.txt .env
-cp env/socket.env.txt config/generated/PRO/socket-service/.env
-
-# Start infrastructure (Docker Compose)
-docker compose up -d
-```
-
-Wait for all services to be healthy:
-
-```bash
-# Check status
 docker compose ps
-
-# Check logs
-docker compose logs -f
 ```
 
-**Step 3: Run .NET Services & Frontend (New Terminals)**
+### Step 4: Chạy application services
 
-Open 5 separate terminals and run:
-
-**Terminal 1: Employee Service**
-
-```bash
-cd hrm-employee-service
-dotnet restore
-dotnet run
-# Runs on http://localhost:5001 (HTTP) and http://localhost:5002 (gRPC)
-```
-
-**Terminal 2: Time Service**
-
-```bash
-cd hrm-Time-Service
-dotnet restore
-dotnet run
-# Runs on http://localhost:5003 (HTTP) and http://localhost:5004 (gRPC)
-```
-
-**Terminal 3: Notification Service**
-
-```bash
-cd hrm-Notification-Service
-dotnet restore
-dotnet run
-# Runs on http://localhost:5005
-```
-
-**Terminal 4: API Gateway**
-
-```bash
-cd hrm-ApiGateway
-dotnet restore
-dotnet run
-# Runs on http://localhost:5000
-```
-
-**Terminal 5: Frontend (Next.js)**
-
-```bash
-cd hrm-nextjs
-npm install
-npm run dev
-# Runs on http://localhost:3000
-```
-
-**Step 4: Access the Application**
-
-All services are now running and ready:
-
-| Service             | URL                    | Status   |
-| ------------------- | ---------------------- | -------- |
-| Frontend            | http://localhost:3000  | ✅ Ready |
-| API Gateway         | http://localhost:5000  | ✅ Ready |
-| Keycloak Admin      | http://localhost:8080  | ✅ Ready |
-| Socket Service      | http://localhost:5100  | ✅ Ready |
-| RabbitMQ Management | http://localhost:15672 | ✅ Ready |
-| MinIO Console       | http://localhost:9001  | ✅ Ready |
+Xem mục [Hướng dẫn chạy services](#hướng-dẫn-chạy-services).
 
 ---
 
-## Environment Files & Setup Templates
+## Hướng dẫn chạy services
 
-### Folder: `hrm-deployment/env/`
+### Cách 1: Script tự động (khuyến nghị)
 
-This folder contains reusable environment file templates for new developers:
-
-```
-env/
-├── docker-compose.env.txt          # Template for Docker Compose environment
-└── socket.env.txt                  # Template for Socket Service configuration
-```
-
-**Usage:**
-
-- Copy `docker-compose.env.txt` → `hrm-deployment/.env` (for Docker services)
-- Copy `socket.env.txt` → `config/generated/PRO/socket-service/.env` (for Socket Service)
-
-These `.txt` files are committed to Git, but the actual `.env` files are in `.gitignore` for security.
-
----
-
-## Helper Scripts for Running Services
-
-### Automated Startup Scripts
-
-To make running all services easier, two helper scripts are provided in the project root:
-
-#### Windows: `run-all-services.bat`
-
-```bash
+**Windows:**
+```powershell
 cd <project-root>
-run-all-services.bat
+.\run-all-services.bat
 ```
 
-This script automatically:
-
-1. Opens 5 new Command Prompt windows
-2. Starts each .NET service with `dotnet restore && dotnet run`
-3. Starts the Frontend with `npm install && npm run dev`
-4. Shows all logs in real-time
-
-**Perfect for development!** Just run once and all services start in separate terminals.
-
-#### Linux/Mac: `run-all-services.sh`
-
+**Linux/Mac:**
 ```bash
 cd <project-root>
 chmod +x run-all-services.sh
 ./run-all-services.sh
 ```
 
-Same functionality as the Windows batch script, but for Unix-like systems.
+Script tự động mở 5 terminal, mỗi terminal chạy 1 service.
 
----
-
-## Quick Reference: Running All Services
-
-### Method 1: Automatic (Recommended)
-
-```bash
-# Windows
-run-all-services.bat
-
-# Linux/Mac
-./run-all-services.sh
-```
-
-### Method 2: Manual - 5 Separate Terminals
+### Cách 2: Chạy thủ công (5 terminal riêng biệt)
 
 ```bash
 # Terminal 1: Employee Service
@@ -450,304 +292,560 @@ cd hrm-ApiGateway && dotnet restore && dotnet run
 cd hrm-nextjs && npm install && npm run dev
 ```
 
----
+### Verify
 
-## 📚 Complete Documentation: RUN_SERVICES.md
-
-For comprehensive setup guide, troubleshooting, and detailed instructions, see: **[RUN_SERVICES.md](../RUN_SERVICES.md)**
-
-This file contains:
-
-- ✅ Step-by-step setup for both automatic and manual methods
-- ✅ Verification steps to ensure all services are running
-- ✅ Login credentials for all services
-- ✅ Troubleshooting guide for common issues
-- ✅ Development tips and best practices
-- ✅ How to stop services and reset everything
-
----
-
-## Service Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│              Docker Compose (Infrastructure)                 │
-│                                                               │
-│  ┌──────────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐│
-│  │  PostgreSQL  │  │  Redis   │  │RabbitMQ  │  │Keycloak  ││
-│  │  (5x dbs)    │  │(6379)    │  │(5672)    │  │(8080)    ││
-│  └──────────────┘  └──────────┘  └──────────┘  └──────────┘│
-│                                                               │
-│  ┌──────────────┐  ┌──────────────────────────────────────┐ │
-│  │   MinIO      │  │  Socket Service (Node.js)            │ │
-│  │(9000/9001)   │  │  docker run - 5100 → localhost:5100  │ │
-│  └──────────────┘  └──────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-           ↑
-    ┌──────┴──────┬──────────────┬──────────────┬─────────┐
-    │             │              │              │         │
-    ▼             ▼              ▼              ▼         ▼
-[Local Dev Machines]
-
-Employee Service     Time Service      Notification Service  API Gateway    Frontend
-(dotnet run)         (dotnet run)      (dotnet run)         (dotnet run)    (npm run dev)
-:5001 HTTP           :5003 HTTP        :5005                :5000           :3000
-:5002 gRPC           :5004 gRPC
+```bash
+curl http://localhost:5000/health   # API Gateway
+curl http://localhost:5001/health   # Employee Service
+curl http://localhost:5003/health   # Time Service
+curl http://localhost:5005/health   # Notification Service
+curl http://localhost:5100/health   # Socket Service
 ```
 
-### Running Environment
-
-- **Infrastructure Services** → Docker Containers (managed by docker-compose)
-- **.NET Services** → Local processes (dotnet run)
-- **Frontend** → Local process (npm run dev)
-- **Socket Service** → Docker Container (Node.js)
+Mở http://localhost:3000 trên browser.
 
 ---
 
 ## Port Reference
 
-### Docker Infrastructure Services
+### Docker Infrastructure
 
-| Service                    | Port  | Type      | Status           |
-| -------------------------- | ----- | --------- | ---------------- |
-| PostgreSQL Employee DB     | 5432  | TCP       | Docker           |
-| PostgreSQL Time DB         | 5433  | TCP       | Docker           |
-| PostgreSQL Notification DB | 5434  | TCP       | Docker           |
-| PostgreSQL Keycloak DB     | 5435  | TCP       | Docker           |
-| PostgreSQL Authz DB        | 5436  | TCP       | Docker           |
-| Redis                      | 6379  | TCP       | Docker           |
-| RabbitMQ Server            | 5672  | TCP       | Docker           |
-| RabbitMQ Management UI     | 15672 | HTTP      | Docker           |
-| Keycloak SSO               | 8080  | HTTP      | Docker           |
-| MinIO API                  | 9000  | HTTP      | Docker           |
-| MinIO Console              | 9001  | HTTP      | Docker           |
-| Socket Service             | 5100  | WebSocket | Docker (Node.js) |
+| Service | Port | Protocol |
+|---------|------|----------|
+| PostgreSQL Employee DB | 5432 | TCP |
+| PostgreSQL Time DB | 5433 | TCP |
+| PostgreSQL Notification DB | 5434 | TCP |
+| PostgreSQL Keycloak DB | 5435 | TCP |
+| PostgreSQL Authz DB | 5436 | TCP |
+| Redis | 6379 | TCP |
+| RabbitMQ Server | 5672 | AMQP |
+| RabbitMQ Management UI | 15672 | HTTP |
+| Keycloak SSO | 8080 | HTTP |
+| MinIO API | 9000 | HTTP |
+| MinIO Console | 9001 | HTTP |
+| Socket Service | 5100 | WebSocket |
 
-### Local Development Services (dotnet run / npm run dev)
+### Application Services (local)
 
-| Service              | HTTP Port | gRPC Port | Process     |
-| -------------------- | --------- | --------- | ----------- |
-| Employee Service     | 5001      | 5002      | dotnet run  |
-| Time Service         | 5003      | 5004      | dotnet run  |
-| Notification Service | 5005      | -         | dotnet run  |
-| API Gateway          | 5000      | -         | dotnet run  |
-| Frontend             | 3000      | -         | npm run dev |
-
-**Note:** Each service runs as a separate process on your local machine, NOT in Docker containers.
+| Service | HTTP Port | gRPC Port | Command |
+|---------|-----------|-----------|---------|
+| Employee Service | 5001 | 5002 | `dotnet run` |
+| Time Service | 5003 | 5004 | `dotnet run` |
+| Notification Service | 5005 | - | `dotnet run` |
+| API Gateway | 5000 | - | `dotnet run` |
+| Frontend | 3000 | - | `npm run dev` |
 
 ---
 
-## Default Credentials
+## Credentials mặc định
 
-### Keycloak Admin
+### Application Users (Keycloak)
 
-| Field    | Value                 |
-| -------- | --------------------- |
-| URL      | http://localhost:8080 |
-| Username | admin                 |
-| Password | admin                 |
-
-### Application Users
-
-| Role     | Username      | Password    |
-| -------- | ------------- | ----------- |
-| Admin    | admin         | admin123    |
-| HR       | hr_user       | hr123       |
-| Manager  | manager_user  | manager123  |
-| Employee | employee_user | employee123 |
-
-### Database Credentials
-
-| Database        | Username          | Password          | Database Name   |
-| --------------- | ----------------- | ----------------- | --------------- |
-| Employee DB     | employee_user     | employee_pass     | employee_db     |
-| Time DB         | time_user         | time_pass         | time_db         |
-| Notification DB | notification_user | notification_pass | notification_db |
-| Keycloak DB     | keycloak_user     | keycloak_pass     | keycloak_db     |
-| Authz DB        | authz_user        | authz_pass        | authz_db        |
+| Role | Username | Password | Realm Roles |
+|------|----------|----------|-------------|
+| Admin | admin | admin123 | system_admin, employee |
+| HR | hr_user | hr123 | hr_staff, employee |
+| Manager | manager_user | manager123 | manager, employee |
+| Employee | employee_user | employee123 | employee |
 
 ### Infrastructure Services
 
-| Service  | Username   | Password   |
-| -------- | ---------- | ---------- |
-| RabbitMQ | hrm_user   | hrm_pass   |
-| MinIO    | minio_user | minio_pass |
+| Service | URL | Username | Password |
+|---------|-----|----------|----------|
+| Keycloak Admin | http://localhost:8080/admin | admin | admin |
+| RabbitMQ Management | http://localhost:15672 | hrm_user | hrm_pass |
+| MinIO Console | http://localhost:9001 | minio_user | minio_pass |
+
+### Databases
+
+| Database | Port | Username | Password | DB Name |
+|----------|------|----------|----------|---------|
+| Employee DB | 5432 | employee_user | employee_pass | employee_db |
+| Time DB | 5433 | time_user | time_pass | time_db |
+| Notification DB | 5434 | notification_user | notification_pass | notification_db |
+| Keycloak DB | 5435 | keycloak_user | keycloak_pass | keycloak_db |
+| Authz DB | 5436 | authz_user | authz_pass | authz_db |
+
+---
+
+## Chi tiết từng Service
+
+### Frontend (Next.js)
+
+SPA dashboard cho toàn bộ hệ thống HRM. Sử dụng Next.js 14 App Router.
+
+**Tính năng chính:**
+- Dashboard với stats, check-in/out nhanh
+- Quản lý nhân viên (CRUD, search, filter, CSV export)
+- Sơ đồ tổ chức (GraphQL, react-organizational-chart)
+- Chấm công (check-in/out với GPS, lịch sử, team attendance)
+- Nghỉ phép / Tăng ca (tạo đơn, xem balance, approval workflow)
+- Approvals Hub (duyệt hàng loạt, audit trail)
+- Thông báo real-time (SignalR WebSocket, badge count)
+- Analytics & Reports (charts với Recharts, CSV export)
+- Profile & Settings (đổi mật khẩu, notification preferences)
+
+**Routes:**
+
+| Route | Quyền | Mô tả |
+|-------|-------|-------|
+| `/` | Public | Login |
+| `/dashboard` | Employee | Dashboard, check-in/out |
+| `/attendance` | Employee | Lịch sử chấm công |
+| `/leave` | Employee | Đơn nghỉ phép, balance |
+| `/overtime` | Employee | Đơn tăng ca |
+| `/shifts` | Employee | Ca làm việc |
+| `/organization` | Employee | Sơ đồ tổ chức |
+| `/notifications` | Employee | Thông báo |
+| `/profile` | Employee | Hồ sơ cá nhân |
+| `/employees` | Manager/HR | Quản lý nhân viên |
+| `/teams` | Manager/HR | Quản lý team |
+| `/team-attendance` | Manager/HR | Chấm công team |
+| `/approvals` | Manager/HR | Duyệt đơn |
+| `/reports` | Manager/HR | Báo cáo, analytics |
+
+**Environment Variables (`.env.local`):**
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8080
+NEXT_PUBLIC_KEYCLOAK_REALM=hrm
+NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=hrm-frontend
+NEXT_PUBLIC_NOTIFICATION_HUB_URL=http://localhost:5000/hubs/notification
+```
+
+**Cấu trúc app:**
+
+```
+app/
+├── page.tsx                    # Login
+├── layout.tsx                  # Root layout + providers
+├── (auth)/                     # Auth-protected routes
+│   ├── dashboard/
+│   ├── employees/
+│   ├── attendance/
+│   ├── leave/
+│   ├── overtime/
+│   ├── approvals/
+│   ├── teams/
+│   ├── team-attendance/
+│   ├── shifts/
+│   ├── organization/
+│   ├── profile/
+│   ├── notifications/
+│   └── reports/
+├── components/
+│   ├── layout/Layout.tsx       # Main layout wrapper
+│   └── providers/
+│       ├── AuthProvider.tsx     # Keycloak auth init
+│       └── NotificationProvider.tsx  # SignalR setup
+└── lib/
+    ├── api.ts                  # REST API client
+    ├── apollo.ts               # GraphQL client
+    ├── auth.ts                 # JWT management
+    ├── signalr.ts              # SignalR hub connection
+    ├── export.ts               # CSV export
+    └── keycloak.ts             # Keycloak integration
+store/
+├── index.ts                    # Redux store
+└── slices/
+    ├── authSlice.ts
+    ├── attendanceSlice.ts
+    └── notificationSlice.ts
+```
+
+**State Management (Redux Toolkit):**
+- `authSlice` — `isAuthenticated`, `user`, `token` (auto-refresh mỗi 4 phút)
+- `attendanceSlice` — `isCheckedIn`, `checkInTime`, `checkOutTime`, `currentHours`
+- `notificationSlice` — `notifications[]`, `unreadCount`
+
+**SignalR:** Auto-reconnect với exponential backoff (1s → 3s → 5s). JWT auth qua Keycloak token.
+
+---
+
+### API Gateway
+
+Entry point cho tất cả client requests. Aggregation layer giữa frontend và backend services.
+
+**Chức năng chính:**
+- Routing requests tới microservices
+- JWT Authentication (Keycloak)
+- Role-based Authorization
+- Aggregation dữ liệu từ nhiều services (REST → gRPC translation)
+- Swagger UI (`/swagger`), GraphQL Playground (`/graphql`)
+
+**REST API Endpoints:**
+
+| Group | Prefix | Chức năng |
+|-------|--------|-----------|
+| Auth | `/api/auth` | Login, logout, refresh token, change password |
+| Employees | `/api/employees` | CRUD nhân viên, departments, teams |
+| Attendance | `/api/attendance` | Check-in/out, history, team attendance |
+| Leave | `/api/leave` | Tạo/duyệt/từ chối đơn nghỉ phép |
+| Overtime | `/api/overtime` | Tạo/duyệt/từ chối đơn tăng ca |
+| Notifications | `/api/notifications` | Danh sách, đánh dấu đã đọc |
+
+**GraphQL Queries:** `getOrgChart`, `getDepartments`, `getTeams`, `getTeamMembers`
+
+**Authorization Policies:**
+
+| Policy | Role | Mô tả |
+|--------|------|-------|
+| Employee | `employee` | Quyền cơ bản |
+| Manager | `manager` | Quản lý team |
+| HRStaff | `hr_staff` | Nghiệp vụ HR |
+| Admin | `system_admin` | Full access |
+| ManagerOrHR | `manager` OR `hr_staff` | Duyệt đơn |
+
+---
+
+### Employee Service
+
+gRPC microservice quản lý nhân viên, phòng ban, team, công ty.
+
+**Nghiệp vụ:**
+- CRUD nhân viên (tạo: `hr_staff`, xóa: `system_admin`)
+- Quản lý phòng ban, team (hỗ trợ phòng ban con)
+- Sơ đồ tổ chức (org chart)
+- Gán vai trò Keycloak cho nhân viên
+- Xác thực manager permission (cho Time Service gọi khi duyệt đơn)
+
+**Trạng thái nhân viên:** Active, OnLeave, Inactive, Probation, Terminated, Resigned
+
+**Loại hình:** FullTime, PartTime, Contract, Temporary, Intern
+
+**Database:** `employee_db` trên `localhost:5432`
+
+**Seed Data:** 7 phòng ban, 14 teams, 30 nhân viên mẫu.
+
+---
+
+### Time Service
+
+gRPC microservice quản lý chấm công, nghỉ phép, tăng ca, ca làm việc.
+
+**Nghiệp vụ chấm công:**
+- Check-in/out với GPS, IP, device info
+- Tính toán tự động: đi muộn, về sớm, OT, tổng giờ làm
+- Cache trạng thái trên Redis (5 phút)
+
+**Nghiệp vụ nghỉ phép — Quy trình duyệt 2 cấp:**
+```
+Employee (tạo đơn) → Manager (Level 1) → HR Staff (Level 2) → Approved/Rejected
+```
+
+| Loại nghỉ | Số ngày mặc định |
+|-----------|------------------|
+| Annual | 12/năm |
+| Sick | 10/năm |
+| Unpaid | Không giới hạn |
+| Maternity | 180 ngày |
+| Paternity | 5 ngày |
+| Wedding | 3 ngày |
+| Bereavement | 3 ngày |
+
+**Event-Driven (Outbox Pattern):** Sau mỗi thao tác (check-in, duyệt đơn...), event được lưu vào bảng `outbox_messages`, background job (Hangfire) xử lý và publish lên RabbitMQ exchange `hrm.events`.
+
+**Database:** `time_db` trên `localhost:5433` | **Redis:** `localhost:6379`
+
+**Hangfire Dashboard:** http://localhost:5003/hangfire
+
+---
+
+### Notification Service
+
+HTTP microservice quản lý thông báo real-time qua SignalR.
+
+**Nghiệp vụ:**
+- Nhận events từ RabbitMQ → lưu DB → push qua SignalR
+- REST API: danh sách thông báo, mark as read, preferences
+- Notification templates (title/message templates với placeholders)
+- User connection tracking (SignalR connection lifecycle)
+
+**SignalR Hub:** `ws://localhost:5005/hubs/notification`
+
+| Server → Client Event | Mô tả |
+|------------------------|-------|
+| `ReceiveNotification` | Thông báo mới |
+| `NotificationRead` | Xác nhận đã đọc |
+| `UnreadCountUpdated` | Cập nhật badge count |
+
+**Notification Types:** LeaveRequestCreated/Approved/Rejected, AttendanceReminder, OvertimeRequest*, EmployeeOnboarding/Offboarding, BirthdayReminder, SystemAnnouncement...
+
+**Database:** `notification_db` trên `localhost:5434`
+
+---
+
+### Socket Service
+
+Node.js WebSocket service sử dụng Socket.IO, chạy trong Docker container.
+
+**Chức năng:**
+- Real-time event broadcasting từ RabbitMQ tới frontend
+- Room-based messaging: `user:{userId}`, `employee:{employeeId}`, `role:{roleName}`, `team:{teamId}`
+- JWT authentication thông qua API Gateway (`/api/auth/me`)
+
+**Events:**
+
+| Category | Events |
+|----------|--------|
+| Attendance | `attendance_checked_in`, `attendance_checked_out` |
+| Leave | `leave_request_created/approved/rejected/cancelled` |
+| Overtime | `overtime_request_created/approved/rejected` |
+| Team | `team_member_checked_in`, `team_leave_request`, `team_overtime_request` |
+
+**Frontend connection:**
+```javascript
+import { io } from 'socket.io-client';
+const socket = io('http://localhost:5100', {
+    auth: { token: keycloakJWT },
+    transports: ['websocket', 'polling']
+});
+```
+
+**Endpoints:** `/` (Socket.IO), `/health`, `/stats`
+
+**Config:** `config/generated/PRO/socket-service/.env`
+
+| Variable | Default |
+|----------|---------|
+| SERVER_PORT | 5001 (internal) |
+| AUTH_API | http://api-gateway:8080/api/auth/me |
+| RABBITMQ_HOST | rabbitmq |
+| RABBITMQ_PORT | 5672 |
+| RABBITMQ_USER | hrm_user |
+| RABBITMQ_PASSWORD | hrm_pass |
+| RABBITMQ_WORK_QUEUE_NAME | hrm_socket_work_queue |
+
+---
+
+### Keycloak (SSO)
+
+OAuth 2.0 / OpenID Connect authentication cho toàn bộ hệ thống.
+
+**Realm:** `hrm` (auto-import từ `realm-export.json`)
+
+**Realm Roles:**
+
+| Role | Mô tả |
+|------|-------|
+| `employee` | Quyền cơ bản: check-in/out, xem data cá nhân, tạo đơn |
+| `manager` | Xem team, duyệt đơn Level 1 |
+| `hr_staff` | CRUD nhân viên, duyệt cuối Level 2, export báo cáo |
+| `system_admin` | Full access |
+
+**Clients:**
+
+| Client ID | Type | Mô tả |
+|-----------|------|-------|
+| `hrm-api` | Confidential | Backend services |
+| `hrm-frontend` | Public | Next.js frontend |
+
+**Client Roles (`hrm-api`):** `employee.read`, `employee.write`, `attendance.read/write`, `leave.read/write/approve`, `overtime.read/write/approve`, `report.read/export`, `admin`
+
+**Custom Theme:** Login page custom (HRM branding, hỗ trợ tiếng Việt), mount qua Docker volume `themes/hrm`.
+
+**JWT Custom Claims:** `employee_id`, `roles`, `resource_access.hrm-api.roles`
+
+**OIDC Discovery:** http://localhost:8080/realms/hrm/.well-known/openid-configuration
+
+---
+
+### Authorization Service
+
+Policy-based Access Control bổ sung cho Keycloak RBAC, sử dụng PostgreSQL function.
+
+**Database:** `authz_db` trên `localhost:5436`, schema `authz`
+
+**Check permission:**
+```sql
+SELECT authz.check_permission('manager', 'leave', 'approve');  -- true
+SELECT authz.check_permission('employee', 'leave', 'approve'); -- false
+```
+
+**Resources:** employee, department, team, company, attendance, leave, overtime, shift, notification, report, settings
+
+**Actions:** read, write, delete, approve, reject, export, manage
+
+**Policies:**
+
+| Policy | Áp dụng cho Role |
+|--------|------------------|
+| `employee_basic` | employee (read/write trên data cá nhân) |
+| `manager_access` | manager (read, approve, reject trên team) |
+| `hr_staff_access` | hr_staff (full CRUD, export, manage) |
+| `admin_full_access` | system_admin (ALL resources, ALL actions) |
+
+Schema tự động init qua `docker-entrypoint-initdb.d`.
+
+---
+
+## Cấu hình môi trường
+
+### Environment Files
+
+```
+hrm-deployment/
+├── .env                              # Docker Compose env (copy từ env/docker-compose.env.txt)
+├── env/
+│   ├── docker-compose.env.txt        # Template (committed to git)
+│   └── socket.env.txt                # Template (committed to git)
+└── config/generated/PRO/
+    ├── api-gateway/appsettings.Production.json
+    ├── employee-service/appsettings.Production.json
+    ├── time-service/appsettings.Production.json
+    ├── notification-service/appsettings.Production.json
+    └── socket-service/.env
+```
+
+File `.env` nằm trong `.gitignore`. File `.txt` template được commit.
+
+### Service Config (appsettings.json mặc định cho local dev)
+
+**Employee Service:**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=employee_db;Username=employee_user;Password=employee_pass"
+  },
+  "Keycloak": {
+    "Authority": "http://localhost:8080/realms/hrm",
+    "Audience": "hrm-api",
+    "ClientId": "hrm-api",
+    "ClientSecret": "hrm-api-secret",
+    "RequireHttps": false
+  }
+}
+```
+
+**Time Service:**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5433;Database=time_db;Username=time_user;Password=time_pass",
+    "Redis": "localhost:6379"
+  },
+  "RabbitMQ": {
+    "Host": "localhost", "Port": 5672,
+    "Username": "hrm_user", "Password": "hrm_pass",
+    "Exchange": "hrm.events"
+  },
+  "GrpcServices": { "EmployeeService": "http://localhost:5002" }
+}
+```
+
+**Notification Service:**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5434;Database=notification_db;Username=notification_user;Password=notification_pass"
+  },
+  "RabbitMQ": {
+    "Host": "localhost", "Port": 5672,
+    "Username": "hrm_user", "Password": "hrm_pass",
+    "Exchange": "hrm.events", "Queue": "notification.queue"
+  }
+}
+```
+
+**API Gateway:**
+```json
+{
+  "GrpcServices": {
+    "EmployeeService": "http://localhost:5002",
+    "TimeService": "http://localhost:5004"
+  },
+  "NotificationService": { "Url": "http://localhost:5005" },
+  "Cors": { "AllowedOrigins": ["http://localhost:3000", "http://127.0.0.1:3000"] }
+}
+```
 
 ---
 
 ## Docker Compose Commands
 
-### Infrastructure Management (docker-compose.yml)
-
 ```bash
 cd hrm-deployment
 
-# Start infrastructure services
+# Start tất cả infrastructure
 docker compose up -d
 
-# Stop infrastructure services
+# Xem trạng thái
+docker compose ps
+
+# Xem logs
+docker compose logs -f
+docker compose logs -f keycloak       # Log 1 service
+
+# Restart 1 service
+docker compose restart rabbitmq
+
+# Stop tất cả
 docker compose down
 
-# View all container status
-docker compose ps
-
-# View logs for all services
-docker compose logs -f
-
-# View specific service logs
-docker compose logs -f keycloak
-docker compose logs -f rabbitmq
-docker compose logs -f postgres-employee
-
-# Restart a specific service
-docker compose restart postgres-employee
-
-# Complete reset (DELETES ALL DATABASE DATA)
-docker compose down -v
-docker compose up -d
+# Reset toàn bộ (XÓA database data)
+docker compose down -v && docker compose up -d
 ```
 
-### Local Development Commands
+---
+
+## Production Deployment
+
+### AWS Mapping
+
+| Local | AWS |
+|-------|-----|
+| PostgreSQL | RDS |
+| Redis | ElastiCache |
+| RabbitMQ | Amazon MQ |
+| MinIO | S3 |
+| Application Services | ECS Fargate / EKS |
+| Secrets | AWS Secrets Manager / Parameter Store |
+| Load Balancing | Application Load Balancer |
+
+### Docker Build (từng service)
 
 ```bash
-# Terminal 1: Start infrastructure
-cd hrm-deployment
-docker compose up -d
-
-# Terminal 2: Employee Service
+# Employee Service
 cd hrm-employee-service
-dotnet run
+docker build -t hrm-employee-service .
+docker run -p 5001:8080 -p 5002:8081 \
+  -e ConnectionStrings__DefaultConnection="Host=host.docker.internal;Port=5432;..." \
+  hrm-employee-service
 
-# Terminal 3: Time Service
-cd hrm-Time-Service
-dotnet run
-
-# Terminal 4: Notification Service
-cd hrm-Notification-Service
-dotnet run
-
-# Terminal 5: API Gateway
+# API Gateway
 cd hrm-ApiGateway
-dotnet run
-
-# Terminal 6: Frontend
-cd hrm-nextjs
-npm run dev
+docker build -t hrm-api-gateway .
+docker run -p 5000:8080 \
+  -e GrpcServices__EmployeeService="http://host.docker.internal:5002" \
+  hrm-api-gateway
 ```
 
-### View Container Status
+### Externalized Configuration
 
-```bash
-# Show only Docker containers
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-
-# Show Docker infrastructure
-cd hrm-deployment
-docker compose ps
+Production config được mount read-only vào containers:
+```yaml
+volumes:
+  - ./config/generated/PRO/employee-service/appsettings.Production.json:/app/appsettings.Production.json:ro
 ```
+
+Thay đổi config chỉ cần restart container, không cần rebuild image.
 
 ---
 
-## Configuration Management
+## Troubleshooting
 
-### Architecture
+### Keycloak chưa ready
 
-The HRM system uses **externalized configuration** mounted from `config/generated/PRO/` directory:
-
-```
-config/
-└── generated/
-    └── PRO/                                    # Production configuration folder
-        ├── api-gateway/
-        │   └── appsettings.Production.json    # API Gateway config
-        ├── employee-service/
-        │   └── appsettings.Production.json    # Employee Service config
-        ├── time-service/
-        │   └── appsettings.Production.json    # Time Service config
-        ├── notification-service/
-        │   └── appsettings.Production.json    # Notification Service config
-        └── socket-service/
-            └── .env                            # Socket Service environment
-```
-
-### How Configuration Works
-
-1. **Docker Volumes Mount:** Configuration files are mounted as read-only volumes into containers:
-
-   ```yaml
-   volumes:
-     - ./config/generated/PRO/employee-service/appsettings.Production.json:/app/appsettings.Production.json:ro
-   ```
-
-2. **No Environment Variables in docker-compose.yml:** All sensitive data (passwords, connection strings) is stored in the mounted config files, not in docker-compose.yml environment section
-
-3. **Easy Management:** Update configuration files without rebuilding Docker images - just restart containers
-
-### Modifying Configuration
-
-To change service configuration:
-
-1. Edit the respective `appsettings.Production.json` or `.env` file in `config/generated/PRO/`
-2. Restart the service:
-   ```bash
-   docker compose restart <service-name>
-   ```
-3. No rebuild needed - configuration changes take effect immediately
-
-### Socket Service Configuration
-
-Socket Service uses an `.env` file instead of JSON:
-
-**File:** `config/generated/PRO/socket-service/.env`
-
-```env
-SERVER_PORT=5001
-AUTH_API=http://api-gateway:8080/api/auth/me
-RABBITMQ_HOST=rabbitmq
-RABBITMQ_PORT=5672
-RABBITMQ_USER=hrm_user
-RABBITMQ_PASSWORD=hrm_pass
-RABBITMQ_WORK_QUEUE_NAME=hrm_socket_work_queue
-NODE_ENV=production
-```
-
----
-
-## Environment Variables
-
-Global environment variables are in `hrm-deployment/.env` (copied from `env/docker-compose.env.txt`).
-
-| Variable                  | Description             | Default        |
-| ------------------------- | ----------------------- | -------------- |
-| `POSTGRES_PASSWORD`       | PostgreSQL password     | (per database) |
-| `RABBITMQ_PASSWORD`       | RabbitMQ password       | hrm_pass       |
-| `KEYCLOAK_ADMIN_PASSWORD` | Keycloak admin password | admin          |
-| `API_GATEWAY_PORT`        | API Gateway port        | 5000           |
-| `FRONTEND_PORT`           | Frontend port           | 3000           |
-| `SOCKET_PORT`             | Socket Service port     | 5100           |
-
----
-
-## Common Setup Issues & Solutions
-
-### NuGet Restore Fails
-
-**Issue:** `dotnet restore` fails with "could not connect to package source"
-
-**Solution:** Ensure your internet connection is active, or use offline package cache:
+Keycloak mất 60-90 giây để khởi động. Đợi log hiển thị `Listening on: http://0.0.0.0:8080`:
 
 ```bash
-cd hrm-employee-service
-dotnet restore --no-cache
+docker compose logs -f keycloak
 ```
 
-### Ports Already in Use
+### Port đã bị chiếm
 
-**Issue:** `System.Net.Sockets.SocketException: Address already in use`
-
-**Solution:** Find and kill process using the port:
-
-```bash
+```powershell
 # Windows
 netstat -ano | findstr :5001
 taskkill /PID <PID> /F
@@ -757,300 +855,73 @@ lsof -i :5001
 kill -9 <PID>
 ```
 
-### Cannot Connect to Database
+### Không kết nối được database
 
-**Issue:** `Npgsql.NpgsqlException: Connection refused on 127.0.0.1:5432`
+```bash
+docker compose ps                            # Kiểm tra containers healthy
+docker compose logs postgres-employee         # Xem logs
+```
 
-**Solution:** Ensure Docker infrastructure is running:
+### Không kết nối được RabbitMQ
+
+```bash
+docker compose logs rabbitmq
+# Đợi "Ready to accept connections"
+# UI: http://localhost:15672 (hrm_user / hrm_pass)
+```
+
+### NuGet restore thất bại
+
+```bash
+cd <service-directory>
+dotnet restore --no-cache
+```
+
+### Frontend CORS error
+
+1. Verify API Gateway đang chạy: `curl http://localhost:5000/health`
+2. Kiểm tra `Cors.AllowedOrigins` trong API Gateway config chứa `http://localhost:3000`
+
+### Socket Service không nhận events
+
+1. Kiểm tra RabbitMQ connection: `docker compose logs socket-service`
+2. Verify queue name `hrm_socket_work_queue` match giữa Time Service và Socket Service
+3. Kiểm tra user đã join đúng room
+
+### gRPC connection lỗi
+
+```bash
+# Test Employee Service
+grpcurl -plaintext localhost:5002 grpc.health.v1.Health/Check
+
+# Test Time Service
+grpcurl -plaintext localhost:5004 grpc.health.v1.Health/Check
+```
+
+### Reset toàn bộ hệ thống
 
 ```bash
 cd hrm-deployment
-docker compose ps
-# All postgres containers should show "healthy"
-```
-
-### Cannot Connect to RabbitMQ
-
-**Issue:** `System.Net.Sockets.SocketException: Connection refused on localhost:5672`
-
-**Solution:** Verify RabbitMQ is running:
-
-```bash
-docker compose logs -f rabbitmq
-# Should show "Ready to accept connections"
-```
-
-### Keycloak Not Ready
-
-**Issue:** Services fail with "Keycloak not ready" errors
-
-**Solution:** Wait for Keycloak to fully start (can take 60-90 seconds):
-
-```bash
-docker compose logs -f keycloak
-# Wait for "Listening on: http://0.0.0.0:8080"
-```
-
----
-
-## Troubleshooting
-
-### .NET Service Won't Start
-
-**Symptoms:** Service exits immediately or shows errors
-
-**Diagnosis:**
-
-```bash
-# Check detailed error messages
-cd hrm-employee-service
-dotnet run --verbose
-
-# Verify connection strings point to correct hosts
-cat config/generated/PRO/employee-service/appsettings.Production.json
-```
-
-**Solutions:**
-
-- Ensure all Docker infrastructure is running: `docker compose ps`
-- Verify connection strings use correct hostnames (localhost for local, container names for Docker)
-- Wait for Keycloak to be fully ready before starting services
-
-### Database Connection Failed
-
-**Error:** `Npgsql.NpgsqlException: unable to connect to server`
-
-**Solution:**
-
-```bash
-# 1. Ensure PostgreSQL is running
-docker compose ps postgres-employee
-
-# 2. Test connection from host machine
-# Use pgAdmin or psql tool to verify connectivity
-# Connection: localhost:5432 (for employee_db)
-
-# 3. Check PostgreSQL logs
-docker compose logs postgres-employee
-```
-
-### Cannot Connect to RabbitMQ
-
-**Error:** `System.Net.Sockets.SocketException: Connection refused`
-
-**Solution:**
-
-```bash
-# 1. Ensure RabbitMQ is running
-docker compose ps rabbitmq
-
-# 2. Check RabbitMQ is accepting connections
-docker compose logs rabbitmq | grep "accepting connections"
-
-# 3. Access RabbitMQ Management UI
-# URL: http://localhost:15672
-# Username: hrm_user
-# Password: hrm_pass
-```
-
-### Keycloak Not Ready
-
-**Error:** Services fail trying to connect to Keycloak
-
-**Solution:**
-
-```bash
-# 1. Check Keycloak startup logs
-docker compose logs keycloak
-
-# 2. Wait for Keycloak to be ready (can take 60-90 seconds)
-docker compose logs -f keycloak | grep -i "ready\|listening"
-
-# 3. Once ready, access Keycloak Admin
-# URL: http://localhost:8080
-# Username: admin
-# Password: admin
-```
-
-### Socket Service Issues
-
-**Error:** Frontend cannot connect to Socket Service
-
-**Solution:**
-
-```bash
-# 1. Verify Socket Service is running in Docker
-docker compose ps socket-service
-
-# 2. Check Socket Service logs
-docker compose logs socket-service
-
-# 3. Verify configuration
-cat config/generated/PRO/socket-service/.env
-
-# 4. Test connection
-curl http://localhost:5100
-```
-
-### Complete Reset (Nuclear Option)
-
-**Use this if everything is broken and you want to start fresh:**
-
-```bash
-cd hrm-deployment
-
-# 1. Stop all infrastructure
 docker compose down -v
 
-# 2. Kill all .NET service processes
-# On Windows: Use Task Manager or taskkill
-# On Linux/Mac: pkill -f "dotnet run"
+# Kill tất cả .NET processes
+# Windows: Task Manager hoặc taskkill
+# Linux/Mac: pkill -f "dotnet run"
 
-# 3. Clear Node modules for frontend (optional)
-cd ../hrm-nextjs
-rm -rf node_modules package-lock.json
+# (Optional) Clear frontend
+cd ../hrm-nextjs && rm -rf node_modules package-lock.json
 
-# 4. Reload Docker images (if needed)
-for %f in (docker-images\*.tar) do docker load -i "%f"
-
-# 5. Start fresh
+# Start lại
 cd ../hrm-deployment
-docker compose up -d
+docker compose up -d --build
 ```
 
----
+### Tips phát triển
 
-## Local Development with .NET SDK
-
-For faster development cycle, you can run .NET services locally using `dotnet run` while keeping infrastructure (databases, Redis, RabbitMQ, Keycloak) in Docker.
-
-### Prerequisites for Local Development
-
-- .NET 8.0 SDK installed on your machine
-- All Docker infrastructure services running (from `docker compose up -d`)
-
-### Running Services Locally
-
-1. **Start Infrastructure in Docker:**
-
-   ```bash
-   cd hrm-deployment
-   docker compose up -d
-   ```
-
-2. **Update Local Configuration:**
-
-   Each .NET service reads from `appsettings.Production.json` in `config/generated/PRO/`
-
-   For local development, you may want to modify connection strings to use `localhost`:
-
-   ```json
-   {
-     "ConnectionStrings": {
-       "DefaultConnection": "Host=localhost;Port=5432;Database=employee_db;Username=employee_user;Password=employee_pass"
-     }
-   }
-   ```
-
-3. **Run Each Service in Separate Terminal:**
-
-   **Employee Service:**
-
-   ```bash
-   cd hrm-employee-service
-   dotnet restore
-   dotnet run
-   # Runs on http://localhost:5001 (HTTP) and http://localhost:5002 (gRPC)
-   ```
-
-   **Time Service:**
-
-   ```bash
-   cd hrm-Time-Service
-   dotnet restore
-   dotnet run
-   # Runs on http://localhost:5003 (HTTP) and http://localhost:5004 (gRPC)
-   ```
-
-   **Notification Service:**
-
-   ```bash
-   cd hrm-Notification-Service
-   dotnet restore
-   dotnet run
-   # Runs on http://localhost:5005
-   ```
-
-   **API Gateway:**
-
-   ```bash
-   cd hrm-ApiGateway
-   dotnet restore
-   dotnet run
-   # Runs on http://localhost:5000
-   ```
-
-   **Frontend (Node.js):**
-
-   ```bash
-   cd hrm-nextjs
-   npm install
-   npm run dev
-   # Runs on http://localhost:3000
-   ```
-
-### Benefits of Local Development
-
-✅ **Faster Iteration:** No need to rebuild Docker images
-✅ **Better Debugging:** Use Visual Studio or VS Code debugger
-✅ **Live Reloading:** Changes automatically reflected
-✅ **Reduced Resource Usage:** Only infrastructure in Docker
-
----
-
-## Socket Service (WebSocket)
-
-The Socket Service provides real-time WebSocket communication. Built with Node.js and Socket.IO.
-
-```
-infrastructure/socket/
-├── Dockerfile
-├── index.js          # Main entry point
-├── package.json
-└── .env.example
-```
-
-### Configuration
-
-| Variable                 | Description                | Default                             |
-| ------------------------ | -------------------------- | ----------------------------------- |
-| SERVER_PORT              | Socket server port         | 5001                                |
-| AUTH_API                 | Auth verification endpoint | http://api-gateway:8080/api/auth/me |
-| RABBITMQ_HOST            | RabbitMQ host              | rabbitmq                            |
-| RABBITMQ_PORT            | RabbitMQ port              | 5672                                |
-| RABBITMQ_USER            | RabbitMQ username          | hrm_user                            |
-| RABBITMQ_PASSWORD        | RabbitMQ password          | hrm_pass                            |
-| RABBITMQ_WORK_QUEUE_NAME | Queue name                 | hrm_socket_work_queue               |
-
----
-
-## Production Deployment (AWS)
-
-For production on AWS:
-
-1. **Infrastructure** -> AWS Managed Services:
-   - PostgreSQL -> RDS (5 databases or 5 RDS instances)
-   - Redis -> ElastiCache
-   - RabbitMQ -> Amazon MQ
-   - MinIO -> S3
-
-2. **Application Services** -> ECS Fargate or EKS
-
-3. **Secrets** -> AWS Secrets Manager / Parameter Store
-
-4. **Environment** -> ECS Task Definition environment variables
-
-5. **Load Balancing** -> Application Load Balancer for API Gateway and Frontend
+- Dùng `dotnet watch run` thay `dotnet run` để auto-reload khi thay đổi code
+- Mỗi service chạy trên 1 terminal riêng để dễ theo dõi logs
+- Swagger UI: http://localhost:5000/swagger
+- GraphQL Playground: http://localhost:5000/graphql
 
 ---
 
