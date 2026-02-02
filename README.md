@@ -141,6 +141,8 @@ hrm/
 ├── hrm-deployment/                # Infrastructure & deployment config
 │   ├── docker-compose.yml         # Docker infrastructure
 │   ├── .env                       # Environment variables (from env/*.txt)
+│   ├── run-all-services.bat       # Start all services (Windows)
+│   ├── run-all-services.sh        # Start all services (Linux/Mac)
 │   ├── env/                       # Environment file templates
 │   │   ├── docker-compose.env.txt
 │   │   └── socket.env.txt
@@ -184,8 +186,6 @@ hrm/
 │
 ├── hrm-nextjs/                    # Frontend (Next.js 14)
 │
-├── run-all-services.bat           # Start all services (Windows)
-├── run-all-services.sh            # Start all services (Linux/Mac)
 └── RUN_SERVICES.md                # (Legacy) setup guide
 ```
 
@@ -260,13 +260,13 @@ Xem mục [Hướng dẫn chạy services](#hướng-dẫn-chạy-services).
 
 **Windows:**
 ```powershell
-cd <project-root>
+cd hrm-deployment
 .\run-all-services.bat
 ```
 
 **Linux/Mac:**
 ```bash
-cd <project-root>
+cd hrm-deployment
 chmod +x run-all-services.sh
 ./run-all-services.sh
 ```
