@@ -9,12 +9,14 @@ Hệ thống quản lý nhân sự microservices, hỗ trợ quản lý nhân vi
 - [Kiến trúc tổng thể](#kiến-trúc-tổng-thể)
 - [Tech Stack](#tech-stack)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
-- [Prerequisites](#prerequisites)
-- [Hướng dẫn setup local](#hướng-dẫn-setup-local)
-- [Hướng dẫn chạy services](#hướng-dẫn-chạy-services)
+- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
+- [Hướng dẫn cài đặt từ đầu](#hướng-dẫn-cài-đặt-từ-đầu)
+- [Khởi động hệ thống](#khởi-động-hệ-thống)
+- [Xác nhận hệ thống hoạt động](#xác-nhận-hệ-thống-hoạt-động)
 - [Port Reference](#port-reference)
-- [Credentials mặc định](#credentials-mặc-định)
+- [Thông tin đăng nhập](#thông-tin-đăng-nhập)
 - [Chi tiết từng Service](#chi-tiết-từng-service)
+  - [Frontend (Next.js)](#frontend-nextjs)
   - [API Gateway](#api-gateway)
   - [Employee Service](#employee-service)
   - [Time Service](#time-service)
@@ -25,7 +27,9 @@ Hệ thống quản lý nhân sự microservices, hỗ trợ quản lý nhân vi
 - [Cấu hình môi trường](#cấu-hình-môi-trường)
 - [Docker Compose Commands](#docker-compose-commands)
 - [Production Deployment](#production-deployment)
-- [Troubleshooting](#troubleshooting)
+- [Lưu ý quan trọng](#lưu-ý-quan-trọng)
+- [Xử lý sự cố](#xử-lý-sự-cố)
+- [Dừng hệ thống](#dừng-hệ-thống)
 
 ---
 
@@ -193,116 +197,217 @@ Tất cả .NET services sử dụng **Clean Architecture 4-Layer**: API → App
 
 ---
 
-## Prerequisites
+## Yêu cầu hệ thống
 
-- **Docker Desktop** 4.x+ (với Docker Compose v2)
-- **.NET 8.0 SDK**
-- **Node.js** (cho frontend)
-- RAM tối thiểu **8GB** cho Docker
-- Ports khả dụng: `3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672`
+| Phần mềm | Version | Kiểm tra |
+|----------|---------|----------|
+| Docker Desktop | 4.x+ | `docker --version` |
+| .NET SDK | 8.0+ | `dotnet --version` |
+| Node.js | 18+ | `node --version` |
+| RAM | 8GB+ | - |
+
+**Ports cần khả dụng:** `3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672`
 
 ---
 
-## Hướng dẫn setup local
+## Hướng dẫn cài đặt từ đầu
 
-### Step 1: Load Docker Images (chỉ lần đầu)
+### Bước 1: Clone repository
 
-Project sử dụng Docker images offline (`.tar` files) — không cần internet.
+```bash
+git clone <repository-url>
+cd hrm
+```
+
+### Bước 2: Load Docker Images (offline)
+
+Project sử dụng Docker images offline - không cần internet.
 
 **Windows (PowerShell):**
 ```powershell
 cd hrm-deployment
-Get-ChildItem docker-images\*.tar | ForEach-Object { docker load -i $_.FullName }
+Get-ChildItem docker-images\*.tar | ForEach-Object {
+    Write-Host "Loading $($_.Name)..."
+    docker load -i $_.FullName
+}
 ```
 
-**Windows (CMD):**
-```cmd
-cd hrm-deployment
-for %f in (docker-images\*.tar) do docker load -i "%f"
-```
-
-**Linux/Mac:**
+**Windows (Git Bash / WSL) / Linux / Mac:**
 ```bash
 cd hrm-deployment
-for file in docker-images/*.tar; do docker load -i "$file"; done
+for file in docker-images/*.tar; do
+    echo "Loading $file..."
+    docker load -i "$file"
+done
 ```
 
-### Step 2: Copy environment files
+**Xác nhận images đã load:**
+```bash
+docker images
+```
+
+Kết quả mong đợi:
+```
+REPOSITORY                      TAG
+postgres                        16-alpine
+redis                           7-alpine
+rabbitmq                        3-management-alpine
+quay.io/keycloak/keycloak       23.0
+minio/minio                     latest
+node                            20-alpine
+```
+
+### Bước 3: Copy Environment Files
 
 ```bash
 cd hrm-deployment
+
+# Copy Docker Compose environment
 cp env/docker-compose.env.txt .env
+
+# Copy Socket Service environment (QUAN TRỌNG!)
 cp env/socket.env.txt config/generated/PRO/socket-service/.env
 ```
 
-### Step 3: Khởi động infrastructure
+### Bước 4: Cấu hình Frontend
+
+```bash
+cd ../hrm-nextjs
+cp .env.example .env.local
+```
+
+Kiểm tra nội dung `.env.local`:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8080
+NEXT_PUBLIC_KEYCLOAK_REALM=hrm
+NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=hrm-frontend
+NEXT_PUBLIC_NOTIFICATION_HUB_URL=http://localhost:5005/hubs/notification
+```
+
+### Bước 5: Cài đặt dependencies cho Frontend
+
+```bash
+cd hrm-nextjs
+npm install
+```
+
+---
+
+## Khởi động hệ thống
+
+### Bước 1: Khởi động Docker Infrastructure
 
 ```bash
 cd hrm-deployment
 docker compose up -d --build
 ```
 
-Đợi tất cả containers healthy (Keycloak mất ~60-90 giây):
-
+**Đợi tất cả containers healthy (khoảng 60-90 giây):**
 ```bash
 docker compose ps
 ```
 
-### Step 4: Chạy application services
+Kết quả mong đợi - tất cả phải "Up" và hầu hết "healthy":
+```
+NAME                        STATUS
+hrm-postgres-employee       Up (healthy)
+hrm-postgres-time           Up (healthy)
+hrm-postgres-notification   Up (healthy)
+hrm-postgres-keycloak       Up (healthy)
+hrm-postgres-authz          Up (healthy)
+hrm-redis                   Up (healthy)
+hrm-rabbitmq                Up (healthy)
+hrm-keycloak                Up (healthy hoặc unhealthy*)
+hrm-minio                   Up (healthy)
+hrm-socket                  Up (healthy hoặc unhealthy*)
+```
 
-Xem mục [Hướng dẫn chạy services](#hướng-dẫn-chạy-services).
+> **Lưu ý:** Keycloak và Socket có thể hiển thị "unhealthy" do healthcheck configuration, nhưng vẫn hoạt động bình thường. Xem [Lưu ý quan trọng](#lưu-ý-quan-trọng).
+
+### Bước 2: Khởi động Application Services
+
+Mở **5 terminal riêng biệt** và chạy lần lượt:
+
+**Terminal 1 - Employee Service:**
+```bash
+cd hrm-employee-service
+dotnet restore
+dotnet run
+```
+
+**Terminal 2 - Time Service:**
+```bash
+cd hrm-Time-Service
+dotnet restore
+dotnet run
+```
+
+**Terminal 3 - Notification Service:**
+```bash
+cd hrm-Notification-Service
+dotnet restore
+dotnet run
+```
+
+**Terminal 4 - API Gateway:**
+```bash
+cd hrm-ApiGateway
+dotnet restore
+dotnet run
+```
+
+**Terminal 5 - Frontend:**
+```bash
+cd hrm-nextjs
+npm run dev
+```
+
+> **Tip:** Sử dụng `dotnet watch run` thay `dotnet run` để auto-reload khi thay đổi code.
 
 ---
 
-## Hướng dẫn chạy services
+## Xác nhận hệ thống hoạt động
 
-### Cách 1: Script tự động (khuyến nghị)
-
-**Windows:**
-```powershell
-cd hrm-deployment
-.\run-all-services.bat
-```
-
-**Linux/Mac:**
-```bash
-cd hrm-deployment
-chmod +x run-all-services.sh
-./run-all-services.sh
-```
-
-Script tự động mở 5 terminal, mỗi terminal chạy 1 service.
-
-### Cách 2: Chạy thủ công (5 terminal riêng biệt)
+### Kiểm tra Health Endpoints
 
 ```bash
-# Terminal 1: Employee Service
-cd hrm-employee-service && dotnet restore && dotnet run
+# Employee Service
+curl http://localhost:5001/health
+# Expected: Healthy
 
-# Terminal 2: Time Service
-cd hrm-Time-Service && dotnet restore && dotnet run
+# Time Service
+curl http://localhost:5003/health
+# Expected: Healthy
 
-# Terminal 3: Notification Service
-cd hrm-Notification-Service && dotnet restore && dotnet run
+# Notification Service
+curl http://localhost:5005/health
+# Expected: Healthy
 
-# Terminal 4: API Gateway
-cd hrm-ApiGateway && dotnet restore && dotnet run
+# API Gateway
+curl http://localhost:5000/health
+# Expected: Healthy
 
-# Terminal 5: Frontend
-cd hrm-nextjs && npm install && npm run dev
+# Socket Service
+curl http://localhost:5100/health
+# Expected: {"status":"healthy","service":"hrm-socket",...}
+
+# Keycloak OIDC
+curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
+# Expected: JSON với issuer, authorization_endpoint, etc.
 ```
 
-### Verify
+### Truy cập Web Interfaces
 
-```bash
-curl http://localhost:5000/health   # API Gateway
-curl http://localhost:5001/health   # Employee Service
-curl http://localhost:5003/health   # Time Service
-curl http://localhost:5005/health   # Notification Service
-curl http://localhost:5100/health   # Socket Service
-```
-
-Mở http://localhost:3000 trên browser.
+| Service | URL | Ghi chú |
+|---------|-----|---------|
+| **Frontend** | http://localhost:3000 | Ứng dụng chính |
+| **Swagger API** | http://localhost:5000/swagger | API Documentation |
+| **GraphQL Playground** | http://localhost:5000/graphql | GraphQL queries |
+| **Keycloak Admin** | http://localhost:8080/admin | SSO Management |
+| **RabbitMQ Management** | http://localhost:15672 | Message Queue |
+| **MinIO Console** | http://localhost:9001 | Object Storage |
+| **Hangfire Dashboard** | http://localhost:5003/hangfire | Background Jobs |
 
 ---
 
@@ -325,7 +430,7 @@ Mở http://localhost:3000 trên browser.
 | MinIO Console | 9001 | HTTP |
 | Socket Service | 5100 | WebSocket |
 
-### Application Services (local)
+### Application Services (Local)
 
 | Service | HTTP Port | gRPC Port | Command |
 |---------|-----------|-----------|---------|
@@ -337,7 +442,7 @@ Mở http://localhost:3000 trên browser.
 
 ---
 
-## Credentials mặc định
+## Thông tin đăng nhập
 
 ### Application Users (Keycloak)
 
@@ -833,24 +938,83 @@ Thay đổi config chỉ cần restart container, không cần rebuild image.
 
 ---
 
-## Troubleshooting
+## Lưu ý quan trọng
 
-### Keycloak chưa ready
+### 1. Keycloak hiển thị "unhealthy" nhưng vẫn hoạt động
 
-Keycloak mất 60-90 giây để khởi động. Đợi log hiển thị `Listening on: http://0.0.0.0:8080`:
+Keycloak cần 60-90 giây để khởi động hoàn toàn. Docker healthcheck có thể timeout trước khi Keycloak ready. Kiểm tra thực tế:
 
 ```bash
-docker compose logs -f keycloak
+curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
 ```
+
+Nếu trả về JSON -> Keycloak hoạt động bình thường.
+
+### 2. Socket Service config cho Hybrid Deployment
+
+File `config/generated/PRO/socket-service/.env` cần nội dung đúng từ `env/socket.env.txt`:
+
+```env
+SERVER_PORT=5001
+AUTH_API=http://api-gateway:8080/api/auth/me
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=hrm_user
+RABBITMQ_PASSWORD=hrm_pass
+RABBITMQ_WORK_QUEUE_NAME=hrm_socket_work_queue
+NODE_ENV=production
+```
+
+> **Nếu Socket Service không thể xác thực user:** Thay `AUTH_API` thành `http://host.docker.internal:5000/api/auth/me` để Socket container có thể gọi API Gateway trên host machine.
+
+### 3. Thứ tự khởi động services
+
+**PHẢI** khởi động theo thứ tự:
+1. Docker Infrastructure (docker compose up)
+2. Employee Service (các service khác phụ thuộc)
+3. Time Service
+4. Notification Service
+5. API Gateway
+6. Frontend
+
+### 4. appsettings.json phải ở thư mục gốc
+
+Mỗi .NET service cần file `appsettings.json` ở **cùng cấp với file `.csproj`**, KHÔNG phải trong `src/API/`.
+
+### 5. Lần đầu chạy Employee/Time/Notification Service
+
+EF Core sẽ tự động tạo database schema (migration). Nếu gặp lỗi database, kiểm tra:
+- PostgreSQL container đã healthy chưa
+- Connection string trong appsettings.json đúng chưa
+
+### 6. CORS errors trên Frontend
+
+Nếu gặp CORS error, kiểm tra:
+1. API Gateway đang chạy: `curl http://localhost:5000/health`
+2. File `hrm-ApiGateway/appsettings.json` có cấu hình:
+```json
+"Cors": {
+  "AllowedOrigins": ["http://localhost:3000", "http://127.0.0.1:3000"]
+}
+```
+
+---
+
+## Xử lý sự cố
 
 ### Port đã bị chiếm
 
+**Windows:**
 ```powershell
-# Windows
+# Tìm process đang dùng port
 netstat -ano | findstr :5001
-taskkill /PID <PID> /F
 
-# Linux/Mac
+# Kill process
+taskkill /PID <PID> /F
+```
+
+**Linux/Mac:**
+```bash
 lsof -i :5001
 kill -9 <PID>
 ```
@@ -858,8 +1022,14 @@ kill -9 <PID>
 ### Không kết nối được database
 
 ```bash
-docker compose ps                            # Kiểm tra containers healthy
-docker compose logs postgres-employee         # Xem logs
+# Kiểm tra container status
+docker compose ps
+
+# Xem logs
+docker compose logs postgres-employee
+
+# Restart container cụ thể
+docker compose restart postgres-employee
 ```
 
 ### Không kết nối được RabbitMQ
@@ -876,11 +1046,6 @@ docker compose logs rabbitmq
 cd <service-directory>
 dotnet restore --no-cache
 ```
-
-### Frontend CORS error
-
-1. Verify API Gateway đang chạy: `curl http://localhost:5000/health`
-2. Kiểm tra `Cors.AllowedOrigins` trong API Gateway config chứa `http://localhost:3000`
 
 ### Socket Service không nhận events
 
@@ -901,27 +1066,106 @@ grpcurl -plaintext localhost:5004 grpc.health.v1.Health/Check
 ### Reset toàn bộ hệ thống
 
 ```bash
+# Dừng và xóa tất cả containers + volumes
 cd hrm-deployment
 docker compose down -v
 
-# Kill tất cả .NET processes
-# Windows: Task Manager hoặc taskkill
-# Linux/Mac: pkill -f "dotnet run"
+# Kill tất cả .NET processes (Windows)
+taskkill /IM dotnet.exe /F
 
-# (Optional) Clear frontend
-cd ../hrm-nextjs && rm -rf node_modules package-lock.json
+# Kill tất cả .NET processes (Linux/Mac)
+pkill -f "dotnet run"
 
-# Start lại
+# Xóa node_modules nếu cần
+cd ../hrm-nextjs
+rm -rf node_modules .next
+
+# Khởi động lại từ đầu
 cd ../hrm-deployment
 docker compose up -d --build
 ```
 
-### Tips phát triển
+### Xem logs của service
 
-- Dùng `dotnet watch run` thay `dotnet run` để auto-reload khi thay đổi code
-- Mỗi service chạy trên 1 terminal riêng để dễ theo dõi logs
-- Swagger UI: http://localhost:5000/swagger
-- GraphQL Playground: http://localhost:5000/graphql
+```bash
+# Docker service logs
+docker compose logs -f keycloak
+docker compose logs -f socket-service
+
+# .NET service logs - xem trực tiếp trong terminal đang chạy
+```
+
+### Frontend lỗi 404 static files
+
+Nếu gặp lỗi:
+```
+GET http://localhost:3000/_next/static/css/app/layout.css net::ERR_ABORTED 404
+GET http://localhost:3000/_next/static/chunks/main-app.js net::ERR_ABORTED 404
+```
+
+**Nguyên nhân:** Process Node.js cũ bị treo, `.next` cache không đồng bộ.
+
+**Cách fix:**
+
+**Windows (PowerShell):**
+```powershell
+# Tìm và kill process chiếm port 3000
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+
+# Hoặc kill tất cả node processes
+taskkill /IM node.exe /F
+```
+
+**Windows (Git Bash):**
+```bash
+# Tìm PID
+netstat -ano | findstr :3000
+
+# Kill (thay <PID> bằng số PID tìm được)
+taskkill //PID <PID> //F
+```
+
+**Linux/Mac:**
+```bash
+# Kill process trên port 3000
+lsof -ti:3000 | xargs kill -9
+
+# Hoặc
+pkill -f "next dev"
+```
+
+**Sau đó restart frontend:**
+```bash
+cd hrm-nextjs
+rm -rf .next
+npm run dev
+```
+
+---
+
+## Dừng hệ thống
+
+### Dừng tạm thời (giữ data)
+
+```bash
+# Dừng Docker infrastructure
+cd hrm-deployment
+docker compose stop
+
+# Dừng .NET services: Ctrl+C trong mỗi terminal
+```
+
+### Dừng và xóa hoàn toàn
+
+```bash
+# Xóa containers VÀ volumes (MẤT DATA)
+cd hrm-deployment
+docker compose down -v
+
+# Chỉ xóa containers (GIỮ DATA)
+docker compose down
+```
 
 ---
 
