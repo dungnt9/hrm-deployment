@@ -80,18 +80,18 @@ Hệ thống quản lý nhân sự microservices, hỗ trợ quản lý nhân vi
 
 ### Communication Flow
 
-| From | To | Protocol |
-|------|----|----------|
-| Frontend | API Gateway | REST, GraphQL, WebSocket |
-| API Gateway | Employee Service | gRPC |
-| API Gateway | Time Service | gRPC |
-| API Gateway | Notification Service | HTTP |
-| API Gateway | Keycloak | HTTP (JWT validation) |
-| Time Service | Employee Service | gRPC (validate manager) |
-| Time Service | RabbitMQ | AMQP (Outbox pattern) |
-| Notification Service | RabbitMQ | AMQP (consumer) |
-| Socket Service | RabbitMQ | AMQP (consumer) |
-| Frontend | Socket Service | WebSocket (Socket.IO) |
+| From                 | To                   | Protocol                 |
+| -------------------- | -------------------- | ------------------------ |
+| Frontend             | API Gateway          | REST, GraphQL, WebSocket |
+| API Gateway          | Employee Service     | gRPC                     |
+| API Gateway          | Time Service         | gRPC                     |
+| API Gateway          | Notification Service | HTTP                     |
+| API Gateway          | Keycloak             | HTTP (JWT validation)    |
+| Time Service         | Employee Service     | gRPC (validate manager)  |
+| Time Service         | RabbitMQ             | AMQP (Outbox pattern)    |
+| Notification Service | RabbitMQ             | AMQP (consumer)          |
+| Socket Service       | RabbitMQ             | AMQP (consumer)          |
+| Frontend             | Socket Service       | WebSocket (Socket.IO)    |
 
 ---
 
@@ -99,42 +99,42 @@ Hệ thống quản lý nhân sự microservices, hỗ trợ quản lý nhân vi
 
 ### Backend (.NET 8)
 
-| Technology | Purpose |
-|------------|---------|
-| ASP.NET Core 8.0 | Web framework |
-| Entity Framework Core 8.0 | ORM |
-| gRPC | Inter-service communication |
-| MediatR 12.x | CQRS pattern |
-| AutoMapper 13.x | Object mapping |
-| FluentValidation 11.x | Input validation |
-| HotChocolate 13.x | GraphQL (API Gateway) |
-| SignalR 8.0 | WebSocket (Notification Service) |
-| Hangfire | Background jobs (Time Service) |
-| Serilog | Structured logging |
+| Technology                | Purpose                          |
+| ------------------------- | -------------------------------- |
+| ASP.NET Core 8.0          | Web framework                    |
+| Entity Framework Core 8.0 | ORM                              |
+| gRPC                      | Inter-service communication      |
+| MediatR 12.x              | CQRS pattern                     |
+| AutoMapper 13.x           | Object mapping                   |
+| FluentValidation 11.x     | Input validation                 |
+| HotChocolate 13.x         | GraphQL (API Gateway)            |
+| SignalR 8.0               | WebSocket (Notification Service) |
+| Hangfire                  | Background jobs (Time Service)   |
+| Serilog                   | Structured logging               |
 
 ### Frontend
 
-| Technology | Purpose |
-|------------|---------|
-| Next.js 14.0.4 | React framework |
-| TypeScript 5 | Type safety |
-| MUI (Material UI) 5.15 | UI components |
-| Redux Toolkit 2.0 | State management |
-| Apollo Client 3.8 | GraphQL client |
-| keycloak-js 23.0 | SSO integration |
-| SignalR Client 8.0 | Real-time notifications |
-| Recharts 2.10 | Charts |
+| Technology             | Purpose                 |
+| ---------------------- | ----------------------- |
+| Next.js 14.0.4         | React framework         |
+| TypeScript 5           | Type safety             |
+| MUI (Material UI) 5.15 | UI components           |
+| Redux Toolkit 2.0      | State management        |
+| Apollo Client 3.8      | GraphQL client          |
+| keycloak-js 23.0       | SSO integration         |
+| SignalR Client 8.0     | Real-time notifications |
+| Recharts 2.10          | Charts                  |
 
 ### Infrastructure
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| PostgreSQL | 16-alpine | Database (5 instances) |
-| Redis | 7-alpine | Caching (attendance status) |
-| RabbitMQ | 3-management-alpine | Event messaging |
-| Keycloak | 23.0 | SSO / OAuth2 / OIDC |
-| MinIO | latest | Object storage |
-| Socket.IO (Node.js) | - | Real-time WebSocket |
+| Technology          | Version             | Purpose                     |
+| ------------------- | ------------------- | --------------------------- |
+| PostgreSQL          | 16-alpine           | Database (5 instances)      |
+| Redis               | 7-alpine            | Caching (attendance status) |
+| RabbitMQ            | 3-management-alpine | Event messaging             |
+| Keycloak            | 23.0                | SSO / OAuth2 / OIDC         |
+| MinIO               | latest              | Object storage              |
+| Socket.IO (Node.js) | -                   | Real-time WebSocket         |
 
 ---
 
@@ -199,12 +199,12 @@ Tất cả .NET services sử dụng **Clean Architecture 4-Layer**: API → App
 
 ## Yêu cầu hệ thống
 
-| Phần mềm | Version | Kiểm tra |
-|----------|---------|----------|
-| Docker Desktop | 4.x+ | `docker --version` |
-| .NET SDK | 8.0+ | `dotnet --version` |
-| Node.js | 18+ | `node --version` |
-| RAM | 8GB+ | - |
+| Phần mềm       | Version | Kiểm tra           |
+| -------------- | ------- | ------------------ |
+| Docker Desktop | 4.x+    | `docker --version` |
+| .NET SDK       | 8.0+    | `dotnet --version` |
+| Node.js        | 18+     | `node --version`   |
+| RAM            | 8GB+    | -                  |
 
 **Ports cần khả dụng:** `3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672`
 
@@ -224,6 +224,7 @@ cd hrm
 Project sử dụng Docker images offline - không cần internet.
 
 **Windows (PowerShell):**
+
 ```powershell
 cd hrm-deployment
 Get-ChildItem docker-images\*.tar | ForEach-Object {
@@ -233,6 +234,7 @@ Get-ChildItem docker-images\*.tar | ForEach-Object {
 ```
 
 **Windows (Git Bash / WSL) / Linux / Mac:**
+
 ```bash
 cd hrm-deployment
 for file in docker-images/*.tar; do
@@ -242,11 +244,13 @@ done
 ```
 
 **Xác nhận images đã load:**
+
 ```bash
 docker images
 ```
 
 Kết quả mong đợi:
+
 ```
 REPOSITORY                      TAG
 postgres                        16-alpine
@@ -277,6 +281,7 @@ cp .env.example .env.local
 ```
 
 Kiểm tra nội dung `.env.local`:
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
 NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8080
@@ -304,11 +309,13 @@ docker compose up -d --build
 ```
 
 **Đợi tất cả containers healthy (khoảng 60-90 giây):**
+
 ```bash
 docker compose ps
 ```
 
 Kết quả mong đợi - tất cả phải "Up" và hầu hết "healthy":
+
 ```
 NAME                        STATUS
 hrm-postgres-employee       Up (healthy)
@@ -330,6 +337,7 @@ hrm-socket                  Up (healthy hoặc unhealthy*)
 Mở **5 terminal riêng biệt** và chạy lần lượt:
 
 **Terminal 1 - Employee Service:**
+
 ```bash
 cd hrm-employee-service
 dotnet restore
@@ -337,6 +345,7 @@ dotnet run
 ```
 
 **Terminal 2 - Time Service:**
+
 ```bash
 cd hrm-Time-Service
 dotnet restore
@@ -344,6 +353,7 @@ dotnet run
 ```
 
 **Terminal 3 - Notification Service:**
+
 ```bash
 cd hrm-Notification-Service
 dotnet restore
@@ -351,6 +361,7 @@ dotnet run
 ```
 
 **Terminal 4 - API Gateway:**
+
 ```bash
 cd hrm-ApiGateway
 dotnet restore
@@ -358,6 +369,7 @@ dotnet run
 ```
 
 **Terminal 5 - Frontend:**
+
 ```bash
 cd hrm-nextjs
 npm run dev
@@ -399,15 +411,15 @@ curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
 
 ### Truy cập Web Interfaces
 
-| Service | URL | Ghi chú |
-|---------|-----|---------|
-| **Frontend** | http://localhost:3000 | Ứng dụng chính |
-| **Swagger API** | http://localhost:5000/swagger | API Documentation |
-| **GraphQL Playground** | http://localhost:5000/graphql | GraphQL queries |
-| **Keycloak Admin** | http://localhost:8080/admin | SSO Management |
-| **RabbitMQ Management** | http://localhost:15672 | Message Queue |
-| **MinIO Console** | http://localhost:9001 | Object Storage |
-| **Hangfire Dashboard** | http://localhost:5003/hangfire | Background Jobs |
+| Service                 | URL                            | Ghi chú           |
+| ----------------------- | ------------------------------ | ----------------- |
+| **Frontend**            | http://localhost:3000          | Ứng dụng chính    |
+| **Swagger API**         | http://localhost:5000/swagger  | API Documentation |
+| **GraphQL Playground**  | http://localhost:5000/graphql  | GraphQL queries   |
+| **Keycloak Admin**      | http://localhost:8080/admin    | SSO Management    |
+| **RabbitMQ Management** | http://localhost:15672         | Message Queue     |
+| **MinIO Console**       | http://localhost:9001          | Object Storage    |
+| **Hangfire Dashboard**  | http://localhost:5003/hangfire | Background Jobs   |
 
 ---
 
@@ -415,30 +427,30 @@ curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
 
 ### Docker Infrastructure
 
-| Service | Port | Protocol |
-|---------|------|----------|
-| PostgreSQL Employee DB | 5432 | TCP |
-| PostgreSQL Time DB | 5433 | TCP |
-| PostgreSQL Notification DB | 5434 | TCP |
-| PostgreSQL Keycloak DB | 5435 | TCP |
-| PostgreSQL Authz DB | 5436 | TCP |
-| Redis | 6379 | TCP |
-| RabbitMQ Server | 5672 | AMQP |
-| RabbitMQ Management UI | 15672 | HTTP |
-| Keycloak SSO | 8080 | HTTP |
-| MinIO API | 9000 | HTTP |
-| MinIO Console | 9001 | HTTP |
-| Socket Service | 5100 | WebSocket |
+| Service                    | Port  | Protocol  |
+| -------------------------- | ----- | --------- |
+| PostgreSQL Employee DB     | 5432  | TCP       |
+| PostgreSQL Time DB         | 5433  | TCP       |
+| PostgreSQL Notification DB | 5434  | TCP       |
+| PostgreSQL Keycloak DB     | 5435  | TCP       |
+| PostgreSQL Authz DB        | 5436  | TCP       |
+| Redis                      | 6379  | TCP       |
+| RabbitMQ Server            | 5672  | AMQP      |
+| RabbitMQ Management UI     | 15672 | HTTP      |
+| Keycloak SSO               | 8080  | HTTP      |
+| MinIO API                  | 9000  | HTTP      |
+| MinIO Console              | 9001  | HTTP      |
+| Socket Service             | 5100  | WebSocket |
 
 ### Application Services (Local)
 
-| Service | HTTP Port | gRPC Port | Command |
-|---------|-----------|-----------|---------|
-| Employee Service | 5001 | 5002 | `dotnet run` |
-| Time Service | 5003 | 5004 | `dotnet run` |
-| Notification Service | 5005 | - | `dotnet run` |
-| API Gateway | 5000 | - | `dotnet run` |
-| Frontend | 3000 | - | `npm run dev` |
+| Service              | HTTP Port | gRPC Port | Command       |
+| -------------------- | --------- | --------- | ------------- |
+| Employee Service     | 5001      | 5002      | `dotnet run`  |
+| Time Service         | 5003      | 5004      | `dotnet run`  |
+| Notification Service | 5005      | -         | `dotnet run`  |
+| API Gateway          | 5000      | -         | `dotnet run`  |
+| Frontend             | 3000      | -         | `npm run dev` |
 
 ---
 
@@ -446,30 +458,30 @@ curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
 
 ### Application Users (Keycloak)
 
-| Role | Username | Password | Realm Roles |
-|------|----------|----------|-------------|
-| Admin | admin | admin123 | system_admin, employee |
-| HR | hr_user | hr123 | hr_staff, employee |
-| Manager | manager_user | manager123 | manager, employee |
-| Employee | employee_user | employee123 | employee |
+| Role     | Username      | Password    | Realm Roles            |
+| -------- | ------------- | ----------- | ---------------------- |
+| Admin    | admin         | admin123    | system_admin, employee |
+| HR       | hr_user       | hr123       | hr_staff, employee     |
+| Manager  | manager_user  | manager123  | manager, employee      |
+| Employee | employee_user | employee123 | employee               |
 
 ### Infrastructure Services
 
-| Service | URL | Username | Password |
-|---------|-----|----------|----------|
-| Keycloak Admin | http://localhost:8080/admin | admin | admin |
-| RabbitMQ Management | http://localhost:15672 | hrm_user | hrm_pass |
-| MinIO Console | http://localhost:9001 | minio_user | minio_pass |
+| Service             | URL                         | Username   | Password   |
+| ------------------- | --------------------------- | ---------- | ---------- |
+| Keycloak Admin      | http://localhost:8080/admin | admin      | admin      |
+| RabbitMQ Management | http://localhost:15672      | hrm_user   | hrm_pass   |
+| MinIO Console       | http://localhost:9001       | minio_user | minio_pass |
 
 ### Databases
 
-| Database | Port | Username | Password | DB Name |
-|----------|------|----------|----------|---------|
-| Employee DB | 5432 | employee_user | employee_pass | employee_db |
-| Time DB | 5433 | time_user | time_pass | time_db |
+| Database        | Port | Username          | Password          | DB Name         |
+| --------------- | ---- | ----------------- | ----------------- | --------------- |
+| Employee DB     | 5432 | employee_user     | employee_pass     | employee_db     |
+| Time DB         | 5433 | time_user         | time_pass         | time_db         |
 | Notification DB | 5434 | notification_user | notification_pass | notification_db |
-| Keycloak DB | 5435 | keycloak_user | keycloak_pass | keycloak_db |
-| Authz DB | 5436 | authz_user | authz_pass | authz_db |
+| Keycloak DB     | 5435 | keycloak_user     | keycloak_pass     | keycloak_db     |
+| Authz DB        | 5436 | authz_user        | authz_pass        | authz_db        |
 
 ---
 
@@ -480,6 +492,7 @@ curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
 SPA dashboard cho toàn bộ hệ thống HRM. Sử dụng Next.js 14 App Router.
 
 **Tính năng chính:**
+
 - Dashboard với stats, check-in/out nhanh
 - Quản lý nhân viên (CRUD, search, filter, CSV export)
 - Sơ đồ tổ chức (GraphQL, react-organizational-chart)
@@ -492,22 +505,23 @@ SPA dashboard cho toàn bộ hệ thống HRM. Sử dụng Next.js 14 App Router
 
 **Routes:**
 
-| Route | Quyền | Mô tả |
-|-------|-------|-------|
-| `/` | Public | Login |
-| `/dashboard` | Employee | Dashboard, check-in/out |
-| `/attendance` | Employee | Lịch sử chấm công |
-| `/leave` | Employee | Đơn nghỉ phép, balance |
-| `/overtime` | Employee | Đơn tăng ca |
-| `/shifts` | Employee | Ca làm việc |
-| `/organization` | Employee | Sơ đồ tổ chức |
-| `/notifications` | Employee | Thông báo |
-| `/profile` | Employee | Hồ sơ cá nhân |
-| `/employees` | Manager/HR | Quản lý nhân viên |
-| `/teams` | Manager/HR | Quản lý team |
-| `/team-attendance` | Manager/HR | Chấm công team |
-| `/approvals` | Manager/HR | Duyệt đơn |
-| `/reports` | Manager/HR | Báo cáo, analytics |
+| Route              | Quyền      | Mô tả                              |
+| ------------------ | ---------- | ---------------------------------- |
+| `/`                | Public     | Login                              |
+| `/dashboard`       | Employee   | Dashboard, check-in/out            |
+| `/attendance`      | Employee   | Lịch sử chấm công                  |
+| `/leave`           | Employee   | Đơn nghỉ phép, balance             |
+| `/overtime`        | Employee   | Đơn tăng ca                        |
+| `/shifts`          | Employee   | Ca làm việc                        |
+| `/organization`    | Employee   | Sơ đồ tổ chức                      |
+| `/notifications`   | Employee   | Thông báo                          |
+| `/profile`         | Employee   | Hồ sơ cá nhân                      |
+| `/employees`       | Manager/HR | Quản lý nhân viên                  |
+| `/departments`     | Manager/HR | **NEW** - Quản lý phòng ban (CRUD) |
+| `/teams`           | Manager/HR | Quản lý team                       |
+| `/team-attendance` | Manager/HR | Chấm công team                     |
+| `/approvals`       | Manager/HR | Duyệt đơn                          |
+| `/reports`         | Manager/HR | Báo cáo, analytics                 |
 
 **Environment Variables (`.env.local`):**
 
@@ -528,6 +542,7 @@ app/
 ├── (auth)/                     # Auth-protected routes
 │   ├── dashboard/
 │   ├── employees/
+│   ├── departments/            # NEW - Department management
 │   ├── attendance/
 │   ├── leave/
 │   ├── overtime/
@@ -540,12 +555,14 @@ app/
 │   ├── notifications/
 │   └── reports/
 ├── components/
-│   ├── layout/Layout.tsx       # Main layout wrapper
+│   ├── layout/
+│   │   ├── Layout.tsx          # Original layout
+│   │   └── CollapsibleLayout.tsx # NEW - Enhanced with collapse
 │   └── providers/
 │       ├── AuthProvider.tsx     # Keycloak auth init
 │       └── NotificationProvider.tsx  # SignalR setup
 └── lib/
-    ├── api.ts                  # REST API client
+    ├── api.ts                  # REST API client (+ Department CRUD)
     ├── apollo.ts               # GraphQL client
     ├── auth.ts                 # JWT management
     ├── signalr.ts              # SignalR hub connection
@@ -559,7 +576,23 @@ store/
     └── notificationSlice.ts
 ```
 
+**NEW Components:**
+
+- **CollapsibleLayout.tsx** - Sidebar với toggle collapse (260px ↔ 72px)
+  - Smooth transitions & animations
+  - Icon-only mode khi collapsed
+  - Tooltips khi hover
+  - Persist state trong localStorage
+  - Responsive mobile/desktop
+
+- **departments/page.tsx** - Department Management
+  - Full CRUD operations
+  - Summary cards (metrics)
+  - Data table với edit/delete
+  - Modal forms với validation
+
 **State Management (Redux Toolkit):**
+
 - `authSlice` — `isAuthenticated`, `user`, `token` (auto-refresh mỗi 4 phút)
 - `attendanceSlice` — `isCheckedIn`, `checkInTime`, `checkOutTime`, `currentHours`
 - `notificationSlice` — `notifications[]`, `unreadCount`
@@ -573,6 +606,7 @@ store/
 Entry point cho tất cả client requests. Aggregation layer giữa frontend và backend services.
 
 **Chức năng chính:**
+
 - Routing requests tới microservices
 - JWT Authentication (Keycloak)
 - Role-based Authorization
@@ -581,26 +615,28 @@ Entry point cho tất cả client requests. Aggregation layer giữa frontend v�
 
 **REST API Endpoints:**
 
-| Group | Prefix | Chức năng |
-|-------|--------|-----------|
-| Auth | `/api/auth` | Login, logout, refresh token, change password |
-| Employees | `/api/employees` | CRUD nhân viên, departments, teams |
-| Attendance | `/api/attendance` | Check-in/out, history, team attendance |
-| Leave | `/api/leave` | Tạo/duyệt/từ chối đơn nghỉ phép |
-| Overtime | `/api/overtime` | Tạo/duyệt/từ chối đơn tăng ca |
-| Notifications | `/api/notifications` | Danh sách, đánh dấu đã đọc |
+| Group         | Prefix               | Chức năng                                     |
+| ------------- | -------------------- | --------------------------------------------- |
+| Auth          | `/api/auth`          | Login, logout, refresh token, change password |
+| Employees     | `/api/employees`     | CRUD nhân viên, departments, teams            |
+| Attendance    | `/api/attendance`    | Check-in/out, history, team attendance        |
+| Leave         | `/api/leave`         | Tạo/duyệt/từ chối đơn nghỉ phép               |
+| Overtime      | `/api/overtime`      | Tạo/duyệt/từ chối đơn tăng ca                 |
+| Notifications | `/api/notifications` | Danh sách, đánh dấu đã đọc                    |
 
 **GraphQL Queries:** `getOrgChart`, `getDepartments`, `getTeams`, `getTeamMembers`
 
 **Authorization Policies:**
 
-| Policy | Role | Mô tả |
-|--------|------|-------|
-| Employee | `employee` | Quyền cơ bản |
-| Manager | `manager` | Quản lý team |
-| HRStaff | `hr_staff` | Nghiệp vụ HR |
-| Admin | `system_admin` | Full access |
-| ManagerOrHR | `manager` OR `hr_staff` | Duyệt đơn |
+| Policy      | Role                                  | Mô tả                   |
+| ----------- | ------------------------------------- | ----------------------- |
+| Employee    | `employee`                            | Quyền cơ bản            |
+| Manager     | `manager`                             | Quản lý team            |
+| HRStaff     | `hr_staff`, `system_admin`            | Nghiệp vụ HR (✅ Fixed) |
+| Admin       | `system_admin`                        | Full access             |
+| ManagerOrHR | `manager`, `hr_staff`, `system_admin` | Duyệt đơn (✅ Fixed)    |
+
+> **✅ Updated:** Admin users can now access Manager/HR endpoints
 
 ---
 
@@ -609,6 +645,7 @@ Entry point cho tất cả client requests. Aggregation layer giữa frontend v�
 gRPC microservice quản lý nhân viên, phòng ban, team, công ty.
 
 **Nghiệp vụ:**
+
 - CRUD nhân viên (tạo: `hr_staff`, xóa: `system_admin`)
 - Quản lý phòng ban, team (hỗ trợ phòng ban con)
 - Sơ đồ tổ chức (org chart)
@@ -630,24 +667,28 @@ gRPC microservice quản lý nhân viên, phòng ban, team, công ty.
 gRPC microservice quản lý chấm công, nghỉ phép, tăng ca, ca làm việc.
 
 **Nghiệp vụ chấm công:**
+
 - Check-in/out với GPS, IP, device info
 - Tính toán tự động: đi muộn, về sớm, OT, tổng giờ làm
 - Cache trạng thái trên Redis (5 phút)
 
 **Nghiệp vụ nghỉ phép — Quy trình duyệt 2 cấp:**
+
 ```
 Employee (tạo đơn) → Manager (Level 1) → HR Staff (Level 2) → Approved/Rejected
 ```
 
-| Loại nghỉ | Số ngày mặc định |
-|-----------|------------------|
-| Annual | 12/năm |
-| Sick | 10/năm |
-| Unpaid | Không giới hạn |
-| Maternity | 180 ngày |
-| Paternity | 5 ngày |
-| Wedding | 3 ngày |
-| Bereavement | 3 ngày |
+> **✅ Improvement:** Leave Request API tự động điền `approverId` từ manager của nhân viên và mặc định `approverType` = "manager" nếu không được cung cấp. Validation messages được cải thiện khi employee không có manager.
+
+| Loại nghỉ   | Số ngày mặc định |
+| ----------- | ---------------- |
+| Annual      | 12/năm           |
+| Sick        | 10/năm           |
+| Unpaid      | Không giới hạn   |
+| Maternity   | 180 ngày         |
+| Paternity   | 5 ngày           |
+| Wedding     | 3 ngày           |
+| Bereavement | 3 ngày           |
 
 **Event-Driven (Outbox Pattern):** Sau mỗi thao tác (check-in, duyệt đơn...), event được lưu vào bảng `outbox_messages`, background job (Hangfire) xử lý và publish lên RabbitMQ exchange `hrm.events`.
 
@@ -662,6 +703,7 @@ Employee (tạo đơn) → Manager (Level 1) → HR Staff (Level 2) → Approved
 HTTP microservice quản lý thông báo real-time qua SignalR.
 
 **Nghiệp vụ:**
+
 - Nhận events từ RabbitMQ → lưu DB → push qua SignalR
 - REST API: danh sách thông báo, mark as read, preferences
 - Notification templates (title/message templates với placeholders)
@@ -669,13 +711,13 @@ HTTP microservice quản lý thông báo real-time qua SignalR.
 
 **SignalR Hub:** `ws://localhost:5005/hubs/notification`
 
-| Server → Client Event | Mô tả |
-|------------------------|-------|
-| `ReceiveNotification` | Thông báo mới |
-| `NotificationRead` | Xác nhận đã đọc |
-| `UnreadCountUpdated` | Cập nhật badge count |
+| Server → Client Event | Mô tả                |
+| --------------------- | -------------------- |
+| `ReceiveNotification` | Thông báo mới        |
+| `NotificationRead`    | Xác nhận đã đọc      |
+| `UnreadCountUpdated`  | Cập nhật badge count |
 
-**Notification Types:** LeaveRequestCreated/Approved/Rejected, AttendanceReminder, OvertimeRequest*, EmployeeOnboarding/Offboarding, BirthdayReminder, SystemAnnouncement...
+**Notification Types:** LeaveRequestCreated/Approved/Rejected, AttendanceReminder, OvertimeRequest\*, EmployeeOnboarding/Offboarding, BirthdayReminder, SystemAnnouncement...
 
 **Database:** `notification_db` trên `localhost:5434`
 
@@ -686,25 +728,27 @@ HTTP microservice quản lý thông báo real-time qua SignalR.
 Node.js WebSocket service sử dụng Socket.IO, chạy trong Docker container.
 
 **Chức năng:**
+
 - Real-time event broadcasting từ RabbitMQ tới frontend
 - Room-based messaging: `user:{userId}`, `employee:{employeeId}`, `role:{roleName}`, `team:{teamId}`
 - JWT authentication thông qua API Gateway (`/api/auth/me`)
 
 **Events:**
 
-| Category | Events |
-|----------|--------|
-| Attendance | `attendance_checked_in`, `attendance_checked_out` |
-| Leave | `leave_request_created/approved/rejected/cancelled` |
-| Overtime | `overtime_request_created/approved/rejected` |
-| Team | `team_member_checked_in`, `team_leave_request`, `team_overtime_request` |
+| Category   | Events                                                                  |
+| ---------- | ----------------------------------------------------------------------- |
+| Attendance | `attendance_checked_in`, `attendance_checked_out`                       |
+| Leave      | `leave_request_created/approved/rejected/cancelled`                     |
+| Overtime   | `overtime_request_created/approved/rejected`                            |
+| Team       | `team_member_checked_in`, `team_leave_request`, `team_overtime_request` |
 
 **Frontend connection:**
+
 ```javascript
-import { io } from 'socket.io-client';
-const socket = io('http://localhost:5100', {
-    auth: { token: keycloakJWT },
-    transports: ['websocket', 'polling']
+import { io } from "socket.io-client";
+const socket = io("http://localhost:5100", {
+  auth: { token: keycloakJWT },
+  transports: ["websocket", "polling"],
 });
 ```
 
@@ -712,15 +756,15 @@ const socket = io('http://localhost:5100', {
 
 **Config:** `config/generated/PRO/socket-service/.env`
 
-| Variable | Default |
-|----------|---------|
-| SERVER_PORT | 5001 (internal) |
-| AUTH_API | http://api-gateway:8080/api/auth/me |
-| RABBITMQ_HOST | rabbitmq |
-| RABBITMQ_PORT | 5672 |
-| RABBITMQ_USER | hrm_user |
-| RABBITMQ_PASSWORD | hrm_pass |
-| RABBITMQ_WORK_QUEUE_NAME | hrm_socket_work_queue |
+| Variable                 | Default                             |
+| ------------------------ | ----------------------------------- |
+| SERVER_PORT              | 5001 (internal)                     |
+| AUTH_API                 | http://api-gateway:8080/api/auth/me |
+| RABBITMQ_HOST            | rabbitmq                            |
+| RABBITMQ_PORT            | 5672                                |
+| RABBITMQ_USER            | hrm_user                            |
+| RABBITMQ_PASSWORD        | hrm_pass                            |
+| RABBITMQ_WORK_QUEUE_NAME | hrm_socket_work_queue               |
 
 ---
 
@@ -732,19 +776,19 @@ OAuth 2.0 / OpenID Connect authentication cho toàn bộ hệ thống.
 
 **Realm Roles:**
 
-| Role | Mô tả |
-|------|-------|
-| `employee` | Quyền cơ bản: check-in/out, xem data cá nhân, tạo đơn |
-| `manager` | Xem team, duyệt đơn Level 1 |
-| `hr_staff` | CRUD nhân viên, duyệt cuối Level 2, export báo cáo |
-| `system_admin` | Full access |
+| Role           | Mô tả                                                 |
+| -------------- | ----------------------------------------------------- |
+| `employee`     | Quyền cơ bản: check-in/out, xem data cá nhân, tạo đơn |
+| `manager`      | Xem team, duyệt đơn Level 1                           |
+| `hr_staff`     | CRUD nhân viên, duyệt cuối Level 2, export báo cáo    |
+| `system_admin` | Full access                                           |
 
 **Clients:**
 
-| Client ID | Type | Mô tả |
-|-----------|------|-------|
-| `hrm-api` | Confidential | Backend services |
-| `hrm-frontend` | Public | Next.js frontend |
+| Client ID      | Type         | Mô tả            |
+| -------------- | ------------ | ---------------- |
+| `hrm-api`      | Confidential | Backend services |
+| `hrm-frontend` | Public       | Next.js frontend |
 
 **Client Roles (`hrm-api`):** `employee.read`, `employee.write`, `attendance.read/write`, `leave.read/write/approve`, `overtime.read/write/approve`, `report.read/export`, `admin`
 
@@ -763,6 +807,7 @@ Policy-based Access Control bổ sung cho Keycloak RBAC, sử dụng PostgreSQL 
 **Database:** `authz_db` trên `localhost:5436`, schema `authz`
 
 **Check permission:**
+
 ```sql
 SELECT authz.check_permission('manager', 'leave', 'approve');  -- true
 SELECT authz.check_permission('employee', 'leave', 'approve'); -- false
@@ -774,11 +819,11 @@ SELECT authz.check_permission('employee', 'leave', 'approve'); -- false
 
 **Policies:**
 
-| Policy | Áp dụng cho Role |
-|--------|------------------|
-| `employee_basic` | employee (read/write trên data cá nhân) |
-| `manager_access` | manager (read, approve, reject trên team) |
-| `hr_staff_access` | hr_staff (full CRUD, export, manage) |
+| Policy              | Áp dụng cho Role                          |
+| ------------------- | ----------------------------------------- |
+| `employee_basic`    | employee (read/write trên data cá nhân)   |
+| `manager_access`    | manager (read, approve, reject trên team) |
+| `hr_staff_access`   | hr_staff (full CRUD, export, manage)      |
 | `admin_full_access` | system_admin (ALL resources, ALL actions) |
 
 Schema tự động init qua `docker-entrypoint-initdb.d`.
@@ -808,6 +853,7 @@ File `.env` nằm trong `.gitignore`. File `.txt` template được commit.
 ### Service Config (appsettings.json mặc định cho local dev)
 
 **Employee Service:**
+
 ```json
 {
   "ConnectionStrings": {
@@ -824,6 +870,7 @@ File `.env` nằm trong `.gitignore`. File `.txt` template được commit.
 ```
 
 **Time Service:**
+
 ```json
 {
   "ConnectionStrings": {
@@ -831,8 +878,10 @@ File `.env` nằm trong `.gitignore`. File `.txt` template được commit.
     "Redis": "localhost:6379"
   },
   "RabbitMQ": {
-    "Host": "localhost", "Port": 5672,
-    "Username": "hrm_user", "Password": "hrm_pass",
+    "Host": "localhost",
+    "Port": 5672,
+    "Username": "hrm_user",
+    "Password": "hrm_pass",
     "Exchange": "hrm.events"
   },
   "GrpcServices": { "EmployeeService": "http://localhost:5002" }
@@ -840,20 +889,25 @@ File `.env` nằm trong `.gitignore`. File `.txt` template được commit.
 ```
 
 **Notification Service:**
+
 ```json
 {
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5434;Database=notification_db;Username=notification_user;Password=notification_pass"
   },
   "RabbitMQ": {
-    "Host": "localhost", "Port": 5672,
-    "Username": "hrm_user", "Password": "hrm_pass",
-    "Exchange": "hrm.events", "Queue": "notification.queue"
+    "Host": "localhost",
+    "Port": 5672,
+    "Username": "hrm_user",
+    "Password": "hrm_pass",
+    "Exchange": "hrm.events",
+    "Queue": "notification.queue"
   }
 }
 ```
 
 **API Gateway:**
+
 ```json
 {
   "GrpcServices": {
@@ -861,7 +915,9 @@ File `.env` nằm trong `.gitignore`. File `.txt` template được commit.
     "TimeService": "http://localhost:5004"
   },
   "NotificationService": { "Url": "http://localhost:5005" },
-  "Cors": { "AllowedOrigins": ["http://localhost:3000", "http://127.0.0.1:3000"] }
+  "Cors": {
+    "AllowedOrigins": ["http://localhost:3000", "http://127.0.0.1:3000"]
+  }
 }
 ```
 
@@ -898,15 +954,15 @@ docker compose down -v && docker compose up -d
 
 ### AWS Mapping
 
-| Local | AWS |
-|-------|-----|
-| PostgreSQL | RDS |
-| Redis | ElastiCache |
-| RabbitMQ | Amazon MQ |
-| MinIO | S3 |
-| Application Services | ECS Fargate / EKS |
-| Secrets | AWS Secrets Manager / Parameter Store |
-| Load Balancing | Application Load Balancer |
+| Local                | AWS                                   |
+| -------------------- | ------------------------------------- |
+| PostgreSQL           | RDS                                   |
+| Redis                | ElastiCache                           |
+| RabbitMQ             | Amazon MQ                             |
+| MinIO                | S3                                    |
+| Application Services | ECS Fargate / EKS                     |
+| Secrets              | AWS Secrets Manager / Parameter Store |
+| Load Balancing       | Application Load Balancer             |
 
 ### Docker Build (từng service)
 
@@ -929,6 +985,7 @@ docker run -p 5000:8080 \
 ### Externalized Configuration
 
 Production config được mount read-only vào containers:
+
 ```yaml
 volumes:
   - ./config/generated/PRO/employee-service/appsettings.Production.json:/app/appsettings.Production.json:ro
@@ -970,6 +1027,7 @@ NODE_ENV=production
 ### 3. Thứ tự khởi động services
 
 **PHẢI** khởi động theo thứ tự:
+
 1. Docker Infrastructure (docker compose up)
 2. Employee Service (các service khác phụ thuộc)
 3. Time Service
@@ -984,14 +1042,17 @@ Mỗi .NET service cần file `appsettings.json` ở **cùng cấp với file `.
 ### 5. Lần đầu chạy Employee/Time/Notification Service
 
 EF Core sẽ tự động tạo database schema (migration). Nếu gặp lỗi database, kiểm tra:
+
 - PostgreSQL container đã healthy chưa
 - Connection string trong appsettings.json đúng chưa
 
 ### 6. CORS errors trên Frontend
 
 Nếu gặp CORS error, kiểm tra:
+
 1. API Gateway đang chạy: `curl http://localhost:5000/health`
 2. File `hrm-ApiGateway/appsettings.json` có cấu hình:
+
 ```json
 "Cors": {
   "AllowedOrigins": ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -1005,6 +1066,7 @@ Nếu gặp CORS error, kiểm tra:
 ### Port đã bị chiếm
 
 **Windows:**
+
 ```powershell
 # Tìm process đang dùng port
 netstat -ano | findstr :5001
@@ -1014,6 +1076,7 @@ taskkill /PID <PID> /F
 ```
 
 **Linux/Mac:**
+
 ```bash
 lsof -i :5001
 kill -9 <PID>
@@ -1098,6 +1161,7 @@ docker compose logs -f socket-service
 ### Frontend lỗi 404 static files
 
 Nếu gặp lỗi:
+
 ```
 GET http://localhost:3000/_next/static/css/app/layout.css net::ERR_ABORTED 404
 GET http://localhost:3000/_next/static/chunks/main-app.js net::ERR_ABORTED 404
@@ -1108,6 +1172,7 @@ GET http://localhost:3000/_next/static/chunks/main-app.js net::ERR_ABORTED 404
 **Cách fix:**
 
 **Windows (PowerShell):**
+
 ```powershell
 # Tìm và kill process chiếm port 3000
 netstat -ano | findstr :3000
@@ -1118,6 +1183,7 @@ taskkill /IM node.exe /F
 ```
 
 **Windows (Git Bash):**
+
 ```bash
 # Tìm PID
 netstat -ano | findstr :3000
@@ -1127,6 +1193,7 @@ taskkill //PID <PID> //F
 ```
 
 **Linux/Mac:**
+
 ```bash
 # Kill process trên port 3000
 lsof -ti:3000 | xargs kill -9
@@ -1136,6 +1203,7 @@ pkill -f "next dev"
 ```
 
 **Sau đó restart frontend:**
+
 ```bash
 cd hrm-nextjs
 rm -rf .next
