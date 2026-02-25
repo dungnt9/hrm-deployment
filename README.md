@@ -493,7 +493,7 @@ SPA dashboard cho toàn bộ hệ thống HRM. Sử dụng Next.js 14 App Router
 
 **Tính năng chính:**
 
-- Dashboard với stats, check-in/out nhanh
+- Dashboard role-aware: Attendance card, Leave Balance (progress bars), This Month stats; Manager/HR thấy thêm Pending Approvals badge; HR/Admin thấy thêm Company Overview; Quick Actions theo role
 - Quản lý nhân viên (CRUD, search, filter, CSV export)
 - Sơ đồ tổ chức (GraphQL, react-organizational-chart)
 - Chấm công (check-in/out với GPS, lịch sử, team attendance)
@@ -618,7 +618,9 @@ Entry point cho tất cả client requests. Aggregation layer giữa frontend v�
 | Group         | Prefix               | Chức năng                                     |
 | ------------- | -------------------- | --------------------------------------------- |
 | Auth          | `/api/auth`          | Login, logout, refresh token, change password |
-| Employees     | `/api/employees`     | CRUD nhân viên, departments, teams            |
+| Employees     | `/api/employees`     | CRUD nhân viên, get me, get manager           |
+| Departments   | `/api/employees/departments` | CRUD phòng ban (HRStaff+)             |
+| Teams         | `/api/employees/teams`       | CRUD team (HRStaff+)                  |
 | Attendance    | `/api/attendance`    | Check-in/out, history, team attendance        |
 | Leave         | `/api/leave`         | Tạo/duyệt/từ chối đơn nghỉ phép               |
 | Overtime      | `/api/overtime`      | Tạo/duyệt/từ chối đơn tăng ca                 |
@@ -651,6 +653,16 @@ gRPC microservice quản lý nhân viên, phòng ban, team, công ty.
 - Sơ đồ tổ chức (org chart)
 - Gán vai trò Keycloak cho nhân viên
 - Xác thực manager permission (cho Time Service gọi khi duyệt đơn)
+
+**gRPC Methods (mới):**
+
+| Method | Mô tả |
+| ------ | ----- |
+| `GetDepartment` / `GetDepartments` | Lấy phòng ban theo ID hoặc toàn bộ |
+| `CreateDepartment` / `UpdateDepartment` / `DeleteDepartment` | CRUD phòng ban |
+| `GetTeam` / `GetTeams` | Lấy team theo ID hoặc theo departmentId |
+| `CreateTeam` / `UpdateTeam` / `DeleteTeam` | CRUD team |
+| `GetEmployeeByKeycloakId` | Tìm nhân viên theo Keycloak userId |
 
 **Trạng thái nhân viên:** Active, OnLeave, Inactive, Probation, Terminated, Resigned
 
@@ -691,6 +703,16 @@ Employee (tạo đơn) → Manager (Level 1) → HR Staff (Level 2) → Approved
 | Bereavement | 3 ngày           |
 
 **Event-Driven (Outbox Pattern):** Sau mỗi thao tác (check-in, duyệt đơn...), event được lưu vào bảng `outbox_messages`, background job (Hangfire) xử lý và publish lên RabbitMQ exchange `hrm.events`.
+
+**Seed Data 2026 (đã áp dụng vào DB):**
+
+| Bảng | Dữ liệu |
+| ---- | ------- |
+| `Shifts` | Morning Shift (08-17), Standard Shift 2 (09-18) |
+| `LeaveBalances` | 10 employees, năm 2026 |
+| `Attendances` | 51 bản ghi tháng 2/2026 cho 3 test users (emp 445, 446, 448) |
+| `LeaveRequests` | 4 pending (approverId = manager 446), 1 approved |
+| `OvertimeRequests` | 3 pending, 3 approved |
 
 **Database:** `time_db` trên `localhost:5433` | **Redis:** `localhost:6379`
 
