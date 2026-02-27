@@ -1,21 +1,21 @@
 # HRM - Human Resource Management System
 
-Hệ thống quản lý nhân sự microservices, hỗ trợ quản lý nhân viên, chấm công, nghỉ phép, tăng ca và thông báo real-time.
+Microservices-based human resource management system, supporting employee management, attendance, leave, overtime and real-time notifications.
 
 ---
 
-## Mục lục
+## Table of Contents
 
-- [Kiến trúc tổng thể](#kiến-trúc-tổng-thể)
+- [Overall Architecture](#overall-architecture)
 - [Tech Stack](#tech-stack)
-- [Cấu trúc thư mục](#cấu-trúc-thư-mục)
-- [Yêu cầu hệ thống](#yêu-cầu-hệ-thống)
-- [Hướng dẫn cài đặt từ đầu](#hướng-dẫn-cài-đặt-từ-đầu)
-- [Khởi động hệ thống](#khởi-động-hệ-thống)
-- [Xác nhận hệ thống hoạt động](#xác-nhận-hệ-thống-hoạt-động)
+- [Directory Structure](#directory-structure)
+- [System Requirements](#system-requirements)
+- [Installation Guide from Scratch](#installation-guide-from-scratch)
+- [Starting the System](#starting-the-system)
+- [Verify System is Working](#verify-system-is-working)
 - [Port Reference](#port-reference)
-- [Thông tin đăng nhập](#thông-tin-đăng-nhập)
-- [Chi tiết từng Service](#chi-tiết-từng-service)
+- [Login Credentials](#login-credentials)
+- [Service Details](#service-details)
   - [Frontend (Next.js)](#frontend-nextjs)
   - [API Gateway](#api-gateway)
   - [Employee Service](#employee-service)
@@ -24,22 +24,22 @@ Hệ thống quản lý nhân sự microservices, hỗ trợ quản lý nhân vi
   - [Socket Service](#socket-service)
   - [Keycloak (SSO)](#keycloak-sso)
   - [Authorization Service](#authorization-service)
-- [Cấu hình môi trường](#cấu-hình-môi-trường)
+- [Environment Configuration](#environment-configuration)
 - [Docker Compose Commands](#docker-compose-commands)
 - [Production Deployment](#production-deployment)
-- [Lưu ý quan trọng](#lưu-ý-quan-trọng)
-- [Xử lý sự cố](#xử-lý-sự-cố)
-- [Dừng hệ thống](#dừng-hệ-thống)
+- [Important Notes](#important-notes)
+- [Troubleshooting](#troubleshooting)
+- [Stopping the System](#stopping-the-system)
 
 ---
 
-## Kiến trúc tổng thể
+## Overall Architecture
 
 ### Deployment Model: Hybrid
 
-- **Infrastructure** (PostgreSQL, Redis, RabbitMQ, Keycloak, MinIO, Socket Service) chạy trong **Docker Compose**
-- **Backend .NET services** (Employee, Time, Notification, API Gateway) chạy local với **`dotnet run`**
-- **Frontend** (Next.js) chạy local với **`npm run dev`**
+- **Infrastructure** (PostgreSQL, Redis, RabbitMQ, Keycloak, MinIO, Socket Service) runs in **Docker Compose**
+- **Backend .NET services** (Employee, Time, Notification, API Gateway) run locally with **`dotnet run`**
+- **Frontend** (Next.js) runs locally with **`npm run dev`**
 
 ### System Architecture
 
@@ -138,7 +138,7 @@ Hệ thống quản lý nhân sự microservices, hỗ trợ quản lý nhân vi
 
 ---
 
-## Cấu trúc thư mục
+## Directory Structure
 
 ```
 hrm/
@@ -193,35 +193,35 @@ hrm/
 └── RUN_SERVICES.md                # (Legacy) setup guide
 ```
 
-Tất cả .NET services sử dụng **Clean Architecture 4-Layer**: API → Application → Domain → Infrastructure.
+All .NET services use **Clean Architecture 4-Layer**: API → Application → Domain → Infrastructure.
 
 ---
 
-## Yêu cầu hệ thống
+## System Requirements
 
-| Phần mềm       | Version | Kiểm tra           |
+| Software       | Version | Check Command      |
 | -------------- | ------- | ------------------ |
 | Docker Desktop | 4.x+    | `docker --version` |
 | .NET SDK       | 8.0+    | `dotnet --version` |
 | Node.js        | 18+     | `node --version`   |
 | RAM            | 8GB+    | -                  |
 
-**Ports cần khả dụng:** `3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672`
+**Required available ports:** `3000, 5000-5005, 5100, 5432-5436, 6379, 5672, 8080, 9000-9001, 15672`
 
 ---
 
-## Hướng dẫn cài đặt từ đầu
+## Installation Guide from Scratch
 
-### Bước 1: Clone repository
+### Step 1: Clone repository
 
 ```bash
 git clone <repository-url>
 cd hrm
 ```
 
-### Bước 2: Load Docker Images (offline)
+### Step 2: Load Docker Images (offline)
 
-Project sử dụng Docker images offline - không cần internet.
+The project uses offline Docker images - no internet required.
 
 **Windows (PowerShell):**
 
@@ -243,13 +243,13 @@ for file in docker-images/*.tar; do
 done
 ```
 
-**Xác nhận images đã load:**
+**Verify images are loaded:**
 
 ```bash
 docker images
 ```
 
-Kết quả mong đợi:
+Expected output:
 
 ```
 REPOSITORY                      TAG
@@ -261,7 +261,7 @@ minio/minio                     latest
 node                            20-alpine
 ```
 
-### Bước 3: Copy Environment Files
+### Step 3: Copy Environment Files
 
 ```bash
 cd hrm-deployment
@@ -269,18 +269,18 @@ cd hrm-deployment
 # Copy Docker Compose environment
 cp env/docker-compose.env.txt .env
 
-# Copy Socket Service environment (QUAN TRỌNG!)
+# Copy Socket Service environment (IMPORTANT!)
 cp env/socket.env.txt config/generated/PRO/socket-service/.env
 ```
 
-### Bước 4: Cấu hình Frontend
+### Step 4: Configure Frontend
 
 ```bash
 cd ../hrm-nextjs
 cp .env.example .env.local
 ```
 
-Kiểm tra nội dung `.env.local`:
+Verify `.env.local` content:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
@@ -290,7 +290,7 @@ NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=hrm-frontend
 NEXT_PUBLIC_NOTIFICATION_HUB_URL=http://localhost:5005/hubs/notification
 ```
 
-### Bước 5: Cài đặt dependencies cho Frontend
+### Step 5: Install Frontend Dependencies
 
 ```bash
 cd hrm-nextjs
@@ -299,22 +299,22 @@ npm install
 
 ---
 
-## Khởi động hệ thống
+## Starting the System
 
-### Bước 1: Khởi động Docker Infrastructure
+### Step 1: Start Docker Infrastructure
 
 ```bash
 cd hrm-deployment
 docker compose up -d --build
 ```
 
-**Đợi tất cả containers healthy (khoảng 60-90 giây):**
+**Wait for all containers to be healthy (approximately 60-90 seconds):**
 
 ```bash
 docker compose ps
 ```
 
-Kết quả mong đợi - tất cả phải "Up" và hầu hết "healthy":
+Expected output - all should be "Up" and most "healthy":
 
 ```
 NAME                        STATUS
@@ -325,16 +325,16 @@ hrm-postgres-keycloak       Up (healthy)
 hrm-postgres-authz          Up (healthy)
 hrm-redis                   Up (healthy)
 hrm-rabbitmq                Up (healthy)
-hrm-keycloak                Up (healthy hoặc unhealthy*)
+hrm-keycloak                Up (healthy or unhealthy*)
 hrm-minio                   Up (healthy)
-hrm-socket                  Up (healthy hoặc unhealthy*)
+hrm-socket                  Up (healthy or unhealthy*)
 ```
 
-> **Lưu ý:** Keycloak và Socket có thể hiển thị "unhealthy" do healthcheck configuration, nhưng vẫn hoạt động bình thường. Xem [Lưu ý quan trọng](#lưu-ý-quan-trọng).
+> **Note:** Keycloak and Socket may show "unhealthy" due to healthcheck configuration, but they still work normally. See [Important Notes](#important-notes).
 
-### Bước 2: Khởi động Application Services
+### Step 2: Start Application Services
 
-Mở **5 terminal riêng biệt** và chạy lần lượt:
+Open **5 separate terminals** and run sequentially:
 
 **Terminal 1 - Employee Service:**
 
@@ -375,13 +375,13 @@ cd hrm-nextjs
 npm run dev
 ```
 
-> **Tip:** Sử dụng `dotnet watch run` thay `dotnet run` để auto-reload khi thay đổi code.
+> **Tip:** Use `dotnet watch run` instead of `dotnet run` for auto-reload when code changes.
 
 ---
 
-## Xác nhận hệ thống hoạt động
+## Verify System is Working
 
-### Kiểm tra Health Endpoints
+### Check Health Endpoints
 
 ```bash
 # Employee Service
@@ -406,14 +406,14 @@ curl http://localhost:5100/health
 
 # Keycloak OIDC
 curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
-# Expected: JSON với issuer, authorization_endpoint, etc.
+# Expected: JSON with issuer, authorization_endpoint, etc.
 ```
 
-### Truy cập Web Interfaces
+### Access Web Interfaces
 
-| Service                 | URL                            | Ghi chú           |
+| Service                 | URL                            | Notes             |
 | ----------------------- | ------------------------------ | ----------------- |
-| **Frontend**            | http://localhost:3000          | Ứng dụng chính    |
+| **Frontend**            | http://localhost:3000          | Main application  |
 | **Swagger API**         | http://localhost:5000/swagger  | API Documentation |
 | **GraphQL Playground**  | http://localhost:5000/graphql  | GraphQL queries   |
 | **Keycloak Admin**      | http://localhost:8080/admin    | SSO Management    |
@@ -454,7 +454,7 @@ curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
 
 ---
 
-## Thông tin đăng nhập
+## Login Credentials
 
 ### Application Users (Keycloak)
 
@@ -485,43 +485,47 @@ curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
 
 ---
 
-## Chi tiết từng Service
+## Service Details
 
 ### Frontend (Next.js)
 
-SPA dashboard cho toàn bộ hệ thống HRM. Sử dụng Next.js 14 App Router.
+SPA dashboard for the entire HRM system. Uses Next.js 14 App Router.
 
-**Tính năng chính:**
+**Main Features:**
 
-- Dashboard role-aware: Attendance card, Leave Balance (progress bars), This Month stats; Manager/HR thấy thêm Pending Approvals badge; HR/Admin thấy thêm Company Overview; Quick Actions theo role
-- Quản lý nhân viên (CRUD, search, filter, CSV export)
-- Sơ đồ tổ chức (GraphQL, react-organizational-chart)
-- Chấm công (check-in/out với GPS, lịch sử, team attendance)
-- Nghỉ phép / Tăng ca (tạo đơn, xem balance, approval workflow)
-- Approvals Hub (duyệt hàng loạt, audit trail)
-- Thông báo real-time (SignalR WebSocket, badge count)
-- Analytics & Reports (charts với Recharts, CSV export)
-- Profile & Settings (đổi mật khẩu, notification preferences)
+- Dashboard role-aware: Attendance card, Leave Balance (progress bars), This Month stats; Manager/HR see Pending Approvals badge; HR/Admin see Company Overview; Quick Actions by role
+- Employee Management (CRUD, search, filter, CSV export)
+- Organization Chart (GraphQL, react-organizational-chart)
+- Attendance (check-in/out with GPS, history, team attendance)
+- Leave / Overtime (request submission, balance view, approval workflow)
+- Approvals Hub (batch approval, audit trail)
+- Real-time Notifications (SignalR WebSocket, badge count)
+- Analytics & Reports (charts with Recharts, CSV export)
+- Profile & Settings (3 tabs: personal info, documents, emergency contacts)
+- **Payslip Preview** (auto-calculate: 22 standard days, attendance, OT x1.5, BHXH/BHYT/BHTN/tax deductions, Print/PDF)
+- **Announcement Board** (filter by category, pin important, HR create/edit/delete, dashboard widget)
 
 **Routes:**
 
-| Route              | Quyền      | Mô tả                              |
-| ------------------ | ---------- | ---------------------------------- |
-| `/`                | Public     | Login                              |
-| `/dashboard`       | Employee   | Dashboard, check-in/out            |
-| `/attendance`      | Employee   | Lịch sử chấm công                  |
-| `/leave`           | Employee   | Đơn nghỉ phép, balance             |
-| `/overtime`        | Employee   | Đơn tăng ca                        |
-| `/shifts`          | Employee   | Ca làm việc                        |
-| `/organization`    | Employee   | Sơ đồ tổ chức                      |
-| `/notifications`   | Employee   | Thông báo                          |
-| `/profile`         | Employee   | Hồ sơ cá nhân                      |
-| `/employees`       | Manager/HR | Quản lý nhân viên                  |
-| `/departments`     | Manager/HR | **NEW** - Quản lý phòng ban (CRUD) |
-| `/teams`           | Manager/HR | Quản lý team                       |
-| `/team-attendance` | Manager/HR | Chấm công team                     |
-| `/approvals`       | Manager/HR | Duyệt đơn                          |
-| `/reports`         | Manager/HR | Báo cáo, analytics                 |
+| Route              | Role       | Description                                                    |
+| ------------------ | ---------- | -------------------------------------------------------------- |
+| `/`                | Public     | Login                                                          |
+| `/dashboard`       | Employee   | Dashboard, check-in/out                                        |
+| `/attendance`      | Employee   | Attendance history                                             |
+| `/leave`           | Employee   | Leave requests, balance                                        |
+| `/overtime`        | Employee   | Overtime requests                                              |
+| `/shifts`          | Employee   | Work shifts                                                    |
+| `/organization`    | Employee   | Organization chart                                             |
+| `/notifications`   | Employee   | Notifications                                                  |
+| `/profile`         | Employee   | Personal profile (3 tabs: info, documents, emergency contacts) |
+| `/payroll`         | Employee   | **NEW** - Payslip (HR view all, employee view own)             |
+| `/announcements`   | Employee   | **NEW** - Company announcements                                |
+| `/employees`       | Manager/HR | Employee management                                            |
+| `/departments`     | Manager/HR | Department management (CRUD)                                   |
+| `/teams`           | Manager/HR | Team management                                                |
+| `/team-attendance` | Manager/HR | Team attendance                                                |
+| `/approvals`       | Manager/HR | Request approvals                                              |
+| `/reports`         | Manager/HR | Reports, analytics                                             |
 
 **Environment Variables (`.env.local`):**
 
@@ -533,7 +537,7 @@ NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=hrm-frontend
 NEXT_PUBLIC_NOTIFICATION_HUB_URL=http://localhost:5000/hubs/notification
 ```
 
-**Cấu trúc app:**
+**App structure:**
 
 ```
 app/
@@ -578,65 +582,65 @@ store/
 
 **NEW Components:**
 
-- **CollapsibleLayout.tsx** - Sidebar với toggle collapse (260px ↔ 72px)
+- **CollapsibleLayout.tsx** - Sidebar with toggle collapse (260px ↔ 72px)
   - Smooth transitions & animations
-  - Icon-only mode khi collapsed
-  - Tooltips khi hover
-  - Persist state trong localStorage
+  - Icon-only mode when collapsed
+  - Tooltips on hover
+  - Persist state in localStorage
   - Responsive mobile/desktop
 
 - **departments/page.tsx** - Department Management
   - Full CRUD operations
   - Summary cards (metrics)
-  - Data table với edit/delete
-  - Modal forms với validation
+  - Data table with edit/delete
+  - Modal forms with validation
 
 **State Management (Redux Toolkit):**
 
-- `authSlice` — `isAuthenticated`, `user`, `token` (auto-refresh mỗi 4 phút)
+- `authSlice` — `isAuthenticated`, `user`, `token` (auto-refresh every 4 minutes)
 - `attendanceSlice` — `isCheckedIn`, `checkInTime`, `checkOutTime`, `currentHours`
 - `notificationSlice` — `notifications[]`, `unreadCount`
 
-**SignalR:** Auto-reconnect với exponential backoff (1s → 3s → 5s). JWT auth qua Keycloak token.
+**SignalR:** Auto-reconnect with exponential backoff (1s → 3s → 5s). JWT auth via Keycloak token.
 
 ---
 
 ### API Gateway
 
-Entry point cho tất cả client requests. Aggregation layer giữa frontend và backend services.
+Entry point for all client requests. Aggregation layer between frontend and backend services.
 
-**Chức năng chính:**
+**Main Functions:**
 
-- Routing requests tới microservices
+- Routing requests to microservices
 - JWT Authentication (Keycloak)
 - Role-based Authorization
-- Aggregation dữ liệu từ nhiều services (REST → gRPC translation)
+- Data aggregation from multiple services (REST → gRPC translation)
 - Swagger UI (`/swagger`), GraphQL Playground (`/graphql`)
 
 **REST API Endpoints:**
 
-| Group         | Prefix               | Chức năng                                     |
-| ------------- | -------------------- | --------------------------------------------- |
-| Auth          | `/api/auth`          | Login, logout, refresh token, change password |
-| Employees     | `/api/employees`     | CRUD nhân viên, get me, get manager           |
-| Departments   | `/api/employees/departments` | CRUD phòng ban (HRStaff+)             |
-| Teams         | `/api/employees/teams`       | CRUD team (HRStaff+)                  |
-| Attendance    | `/api/attendance`    | Check-in/out, history, team attendance        |
-| Leave         | `/api/leave`         | Tạo/duyệt/từ chối đơn nghỉ phép               |
-| Overtime      | `/api/overtime`      | Tạo/duyệt/từ chối đơn tăng ca                 |
-| Notifications | `/api/notifications` | Danh sách, đánh dấu đã đọc                    |
+| Group         | Prefix                       | Function                                      |
+| ------------- | ---------------------------- | --------------------------------------------- |
+| Auth          | `/api/auth`                  | Login, logout, refresh token, change password |
+| Employees     | `/api/employees`             | Employee CRUD, get me, get manager            |
+| Departments   | `/api/employees/departments` | Department CRUD (HRStaff+)                    |
+| Teams         | `/api/employees/teams`       | Team CRUD (HRStaff+)                          |
+| Attendance    | `/api/attendance`            | Check-in/out, history, team attendance        |
+| Leave         | `/api/leave`                 | Create/approve/reject leave requests          |
+| Overtime      | `/api/overtime`              | Create/approve/reject overtime requests       |
+| Notifications | `/api/notifications`         | List, mark as read                            |
 
 **GraphQL Queries:** `getOrgChart`, `getDepartments`, `getTeams`, `getTeamMembers`
 
 **Authorization Policies:**
 
-| Policy      | Role                                  | Mô tả                   |
-| ----------- | ------------------------------------- | ----------------------- |
-| Employee    | `employee`                            | Quyền cơ bản            |
-| Manager     | `manager`                             | Quản lý team            |
-| HRStaff     | `hr_staff`, `system_admin`            | Nghiệp vụ HR (✅ Fixed) |
-| Admin       | `system_admin`                        | Full access             |
-| ManagerOrHR | `manager`, `hr_staff`, `system_admin` | Duyệt đơn (✅ Fixed)    |
+| Policy      | Role                                  | Description                  |
+| ----------- | ------------------------------------- | ---------------------------- |
+| Employee    | `employee`                            | Basic permissions            |
+| Manager     | `manager`                             | Team management              |
+| HRStaff     | `hr_staff`, `system_admin`            | HR operations (✅ Fixed)     |
+| Admin       | `system_admin`                        | Full access                  |
+| ManagerOrHR | `manager`, `hr_staff`, `system_admin` | Request approvals (✅ Fixed) |
 
 > **✅ Updated:** Admin users can now access Manager/HR endpoints
 
@@ -644,77 +648,77 @@ Entry point cho tất cả client requests. Aggregation layer giữa frontend v�
 
 ### Employee Service
 
-gRPC microservice quản lý nhân viên, phòng ban, team, công ty.
+gRPC microservice managing employees, departments, teams, and company.
 
-**Nghiệp vụ:**
+**Business Logic:**
 
-- CRUD nhân viên (tạo: `hr_staff`, xóa: `system_admin`)
-- Quản lý phòng ban, team (hỗ trợ phòng ban con)
-- Sơ đồ tổ chức (org chart)
-- Gán vai trò Keycloak cho nhân viên
-- Xác thực manager permission (cho Time Service gọi khi duyệt đơn)
+- Employee CRUD (create: `hr_staff`, delete: `system_admin`)
+- Department and team management (supports sub-departments)
+- Organization chart (org chart)
+- Assign Keycloak roles to employees
+- Validate manager permissions (called by Time Service when approving requests)
 
-**gRPC Methods (mới):**
+**gRPC Methods (new):**
 
-| Method | Mô tả |
-| ------ | ----- |
-| `GetDepartment` / `GetDepartments` | Lấy phòng ban theo ID hoặc toàn bộ |
-| `CreateDepartment` / `UpdateDepartment` / `DeleteDepartment` | CRUD phòng ban |
-| `GetTeam` / `GetTeams` | Lấy team theo ID hoặc theo departmentId |
-| `CreateTeam` / `UpdateTeam` / `DeleteTeam` | CRUD team |
-| `GetEmployeeByKeycloakId` | Tìm nhân viên theo Keycloak userId |
+| Method                                                       | Description                       |
+| ------------------------------------------------------------ | --------------------------------- |
+| `GetDepartment` / `GetDepartments`                           | Get department by ID or all       |
+| `CreateDepartment` / `UpdateDepartment` / `DeleteDepartment` | Department CRUD                   |
+| `GetTeam` / `GetTeams`                                       | Get team by ID or by departmentId |
+| `CreateTeam` / `UpdateTeam` / `DeleteTeam`                   | Team CRUD                         |
+| `GetEmployeeByKeycloakId`                                    | Find employee by Keycloak userId  |
 
-**Trạng thái nhân viên:** Active, OnLeave, Inactive, Probation, Terminated, Resigned
+**Employee Status:** Active, OnLeave, Inactive, Probation, Terminated, Resigned
 
-**Loại hình:** FullTime, PartTime, Contract, Temporary, Intern
+**Employment Type:** FullTime, PartTime, Contract, Temporary, Intern
 
-**Database:** `employee_db` trên `localhost:5432`
+**Database:** `employee_db` on `localhost:5432`
 
-**Seed Data:** 7 phòng ban, 14 teams, 30 nhân viên mẫu.
+**Seed Data:** 7 departments, 14 teams, 30 sample employees.
 
 ---
 
 ### Time Service
 
-gRPC microservice quản lý chấm công, nghỉ phép, tăng ca, ca làm việc.
+gRPC microservice managing attendance, leave, overtime, and work shifts.
 
-**Nghiệp vụ chấm công:**
+**Attendance Business Logic:**
 
-- Check-in/out với GPS, IP, device info
-- Tính toán tự động: đi muộn, về sớm, OT, tổng giờ làm
-- Cache trạng thái trên Redis (5 phút)
+- Check-in/out with GPS, IP, device info
+- Automatic calculation: late arrival, early departure, OT, total hours
+- Cache status on Redis (5 minutes)
 
-**Nghiệp vụ nghỉ phép — Quy trình duyệt 2 cấp:**
+**Leave Request Business Logic - 2-Level Approval Workflow:**
 
 ```
-Employee (tạo đơn) → Manager (Level 1) → HR Staff (Level 2) → Approved/Rejected
+Employee (create request) → Manager (Level 1) → HR Staff (Level 2) → Approved/Rejected
 ```
 
-> **✅ Improvement:** Leave Request API tự động điền `approverId` từ manager của nhân viên và mặc định `approverType` = "manager" nếu không được cung cấp. Validation messages được cải thiện khi employee không có manager.
+> **✅ Improvement:** Leave Request API automatically fills `approverId` from employee's manager and defaults `approverType` = "manager" if not provided. Validation messages are improved when employee has no manager.
 
-| Loại nghỉ   | Số ngày mặc định |
-| ----------- | ---------------- |
-| Annual      | 12/năm           |
-| Sick        | 10/năm           |
-| Unpaid      | Không giới hạn   |
-| Maternity   | 180 ngày         |
-| Paternity   | 5 ngày           |
-| Wedding     | 3 ngày           |
-| Bereavement | 3 ngày           |
+| Leave Type  | Default Days |
+| ----------- | ------------ |
+| Annual      | 12/year      |
+| Sick        | 10/year      |
+| Unpaid      | Unlimited    |
+| Maternity   | 180 days     |
+| Paternity   | 5 days       |
+| Wedding     | 3 days       |
+| Bereavement | 3 days       |
 
-**Event-Driven (Outbox Pattern):** Sau mỗi thao tác (check-in, duyệt đơn...), event được lưu vào bảng `outbox_messages`, background job (Hangfire) xử lý và publish lên RabbitMQ exchange `hrm.events`.
+**Event-Driven (Outbox Pattern):** After each operation (check-in, request approval...), events are saved to `outbox_messages` table, background job (Hangfire) processes and publishes to RabbitMQ exchange `hrm.events`.
 
-**Seed Data 2026 (đã áp dụng vào DB):**
+**Seed Data 2026 (applied to DB):**
 
-| Bảng | Dữ liệu |
-| ---- | ------- |
-| `Shifts` | Morning Shift (08-17), Standard Shift 2 (09-18) |
-| `LeaveBalances` | 10 employees, năm 2026 |
-| `Attendances` | 51 bản ghi tháng 2/2026 cho 3 test users (emp 445, 446, 448) |
-| `LeaveRequests` | 4 pending (approverId = manager 446), 1 approved |
-| `OvertimeRequests` | 3 pending, 3 approved |
+| Table              | Data                                                     |
+| ------------------ | -------------------------------------------------------- |
+| `Shifts`           | Morning Shift (08-17), Standard Shift 2 (09-18)          |
+| `LeaveBalances`    | 10 employees, year 2026                                  |
+| `Attendances`      | 51 records Feb 2026 for 3 test users (emp 445, 446, 448) |
+| `LeaveRequests`    | 4 pending (approverId = manager 446), 1 approved         |
+| `OvertimeRequests` | 3 pending, 3 approved                                    |
 
-**Database:** `time_db` trên `localhost:5433` | **Redis:** `localhost:6379`
+**Database:** `time_db` on `localhost:5433` | **Redis:** `localhost:6379`
 
 **Hangfire Dashboard:** http://localhost:5003/hangfire
 
@@ -722,38 +726,38 @@ Employee (tạo đơn) → Manager (Level 1) → HR Staff (Level 2) → Approved
 
 ### Notification Service
 
-HTTP microservice quản lý thông báo real-time qua SignalR.
+HTTP microservice managing real-time notifications via SignalR.
 
-**Nghiệp vụ:**
+**Business Logic:**
 
-- Nhận events từ RabbitMQ → lưu DB → push qua SignalR
-- REST API: danh sách thông báo, mark as read, preferences
-- Notification templates (title/message templates với placeholders)
+- Receive events from RabbitMQ → save to DB → push via SignalR
+- REST API: notification list, mark as read, preferences
+- Notification templates (title/message templates with placeholders)
 - User connection tracking (SignalR connection lifecycle)
 
 **SignalR Hub:** `ws://localhost:5005/hubs/notification`
 
-| Server → Client Event | Mô tả                |
-| --------------------- | -------------------- |
-| `ReceiveNotification` | Thông báo mới        |
-| `NotificationRead`    | Xác nhận đã đọc      |
-| `UnreadCountUpdated`  | Cập nhật badge count |
+| Server → Client Event | Description            |
+| --------------------- | ---------------------- |
+| `ReceiveNotification` | New notification       |
+| `NotificationRead`    | Mark as read confirmed |
+| `UnreadCountUpdated`  | Update badge count     |
 
 **Notification Types:** LeaveRequestCreated/Approved/Rejected, AttendanceReminder, OvertimeRequest\*, EmployeeOnboarding/Offboarding, BirthdayReminder, SystemAnnouncement...
 
-**Database:** `notification_db` trên `localhost:5434`
+**Database:** `notification_db` on `localhost:5434`
 
 ---
 
 ### Socket Service
 
-Node.js WebSocket service sử dụng Socket.IO, chạy trong Docker container.
+Node.js WebSocket service using Socket.IO, running in Docker container.
 
-**Chức năng:**
+**Functions:**
 
-- Real-time event broadcasting từ RabbitMQ tới frontend
+- Real-time event broadcasting from RabbitMQ to frontend
 - Room-based messaging: `user:{userId}`, `employee:{employeeId}`, `role:{roleName}`, `team:{teamId}`
-- JWT authentication thông qua API Gateway (`/api/auth/me`)
+- JWT authentication via API Gateway (`/api/auth/me`)
 
 **Events:**
 
@@ -792,29 +796,29 @@ const socket = io("http://localhost:5100", {
 
 ### Keycloak (SSO)
 
-OAuth 2.0 / OpenID Connect authentication cho toàn bộ hệ thống.
+OAuth 2.0 / OpenID Connect authentication for the entire system.
 
-**Realm:** `hrm` (auto-import từ `realm-export.json`)
+**Realm:** `hrm` (auto-import from `realm-export.json`)
 
 **Realm Roles:**
 
-| Role           | Mô tả                                                 |
-| -------------- | ----------------------------------------------------- |
-| `employee`     | Quyền cơ bản: check-in/out, xem data cá nhân, tạo đơn |
-| `manager`      | Xem team, duyệt đơn Level 1                           |
-| `hr_staff`     | CRUD nhân viên, duyệt cuối Level 2, export báo cáo    |
-| `system_admin` | Full access                                           |
+| Role           | Description                                                          |
+| -------------- | -------------------------------------------------------------------- |
+| `employee`     | Basic permissions: check-in/out, view personal data, create requests |
+| `manager`      | View team, approve Level 1 requests                                  |
+| `hr_staff`     | Employee CRUD, final Level 2 approval, export reports                |
+| `system_admin` | Full access                                                          |
 
 **Clients:**
 
-| Client ID      | Type         | Mô tả            |
+| Client ID      | Type         | Description      |
 | -------------- | ------------ | ---------------- |
 | `hrm-api`      | Confidential | Backend services |
 | `hrm-frontend` | Public       | Next.js frontend |
 
 **Client Roles (`hrm-api`):** `employee.read`, `employee.write`, `attendance.read/write`, `leave.read/write/approve`, `overtime.read/write/approve`, `report.read/export`, `admin`
 
-**Custom Theme:** Login page custom (HRM branding, hỗ trợ tiếng Việt), mount qua Docker volume `themes/hrm`.
+**Custom Theme:** Custom login page (HRM branding, Vietnamese support), mounted via Docker volume `themes/hrm`.
 
 **JWT Custom Claims:** `employee_id`, `roles`, `resource_access.hrm-api.roles`
 
@@ -824,9 +828,9 @@ OAuth 2.0 / OpenID Connect authentication cho toàn bộ hệ thống.
 
 ### Authorization Service
 
-Policy-based Access Control bổ sung cho Keycloak RBAC, sử dụng PostgreSQL function.
+Policy-based Access Control supplementing Keycloak RBAC, using PostgreSQL functions.
 
-**Database:** `authz_db` trên `localhost:5436`, schema `authz`
+**Database:** `authz_db` on `localhost:5436`, schema `authz`
 
 **Check permission:**
 
@@ -841,24 +845,24 @@ SELECT authz.check_permission('employee', 'leave', 'approve'); -- false
 
 **Policies:**
 
-| Policy              | Áp dụng cho Role                          |
+| Policy              | Applied to Role                           |
 | ------------------- | ----------------------------------------- |
-| `employee_basic`    | employee (read/write trên data cá nhân)   |
-| `manager_access`    | manager (read, approve, reject trên team) |
+| `employee_basic`    | employee (read/write on personal data)    |
+| `manager_access`    | manager (read, approve, reject on team)   |
 | `hr_staff_access`   | hr_staff (full CRUD, export, manage)      |
 | `admin_full_access` | system_admin (ALL resources, ALL actions) |
 
-Schema tự động init qua `docker-entrypoint-initdb.d`.
+Schema auto-initialized via `docker-entrypoint-initdb.d`.
 
 ---
 
-## Cấu hình môi trường
+## Environment Configuration
 
 ### Environment Files
 
 ```
 hrm-deployment/
-├── .env                              # Docker Compose env (copy từ env/docker-compose.env.txt)
+├── .env                              # Docker Compose env (copy from env/docker-compose.env.txt)
 ├── env/
 │   ├── docker-compose.env.txt        # Template (committed to git)
 │   └── socket.env.txt                # Template (committed to git)
@@ -870,9 +874,9 @@ hrm-deployment/
     └── socket-service/.env
 ```
 
-File `.env` nằm trong `.gitignore`. File `.txt` template được commit.
+File `.env` is in `.gitignore`. File `.txt` template is committed.
 
-### Service Config (appsettings.json mặc định cho local dev)
+### Service Config (default appsettings.json for local dev)
 
 **Employee Service:**
 
@@ -950,23 +954,23 @@ File `.env` nằm trong `.gitignore`. File `.txt` template được commit.
 ```bash
 cd hrm-deployment
 
-# Start tất cả infrastructure
+# Start all infrastructure
 docker compose up -d
 
-# Xem trạng thái
+# Check status
 docker compose ps
 
-# Xem logs
+# View logs
 docker compose logs -f
-docker compose logs -f keycloak       # Log 1 service
+docker compose logs -f keycloak       # Log for 1 service
 
 # Restart 1 service
 docker compose restart rabbitmq
 
-# Stop tất cả
+# Stop all
 docker compose down
 
-# Reset toàn bộ (XÓA database data)
+# Reset everything (DELETE database data)
 docker compose down -v && docker compose up -d
 ```
 
@@ -986,7 +990,7 @@ docker compose down -v && docker compose up -d
 | Secrets              | AWS Secrets Manager / Parameter Store |
 | Load Balancing       | Application Load Balancer             |
 
-### Docker Build (từng service)
+### Docker Build (per service)
 
 ```bash
 # Employee Service
@@ -1006,32 +1010,36 @@ docker run -p 5000:8080 \
 
 ### Externalized Configuration
 
-Production config được mount read-only vào containers:
+Production config is mounted read-only into containers:
 
 ```yaml
 volumes:
   - ./config/generated/PRO/employee-service/appsettings.Production.json:/app/appsettings.Production.json:ro
 ```
 
-Thay đổi config chỉ cần restart container, không cần rebuild image.
+Config changes only require container restart, no need to rebuild image.
 
 ---
 
-## Lưu ý quan trọng
+## Important Notes
 
-### 1. Keycloak hiển thị "unhealthy" nhưng vẫn hoạt động
+### 1. Database Migration for New Features
 
-Keycloak cần 60-90 giây để khởi động hoàn toàn. Docker healthcheck có thể timeout trước khi Keycloak ready. Kiểm tra thực tế:
+**IMPORTANT:** New features (Payslip, Profile 3-tabs, Announcements) require 3 new tables: `EmployeeDocuments`, `EmployeeContacts`, `Announcements`. The project uses `EnsureCreatedAsync()`, so when you **drop & recreate database** (`docker compose down -v && docker compose up -d`), tables will be auto-created. If you want to keep existing data, you need to add migrations manually.
+
+### 2. Keycloak shows "unhealthy" but still works
+
+Keycloak needs 60-90 seconds to fully start. Docker healthcheck may timeout before Keycloak is ready. Check in practice:
 
 ```bash
 curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
 ```
 
-Nếu trả về JSON -> Keycloak hoạt động bình thường.
+If it returns JSON -> Keycloak is working normally.
 
-### 2. Socket Service config cho Hybrid Deployment
+### 3. Socket Service config for Hybrid Deployment
 
-File `config/generated/PRO/socket-service/.env` cần nội dung đúng từ `env/socket.env.txt`:
+File `config/generated/PRO/socket-service/.env` needs correct content from `env/socket.env.txt`:
 
 ```env
 SERVER_PORT=5001
@@ -1044,36 +1052,36 @@ RABBITMQ_WORK_QUEUE_NAME=hrm_socket_work_queue
 NODE_ENV=production
 ```
 
-> **Nếu Socket Service không thể xác thực user:** Thay `AUTH_API` thành `http://host.docker.internal:5000/api/auth/me` để Socket container có thể gọi API Gateway trên host machine.
+> **If Socket Service cannot authenticate users:** Change `AUTH_API` to `http://host.docker.internal:5000/api/auth/me` so the Socket container can call API Gateway on the host machine.
 
-### 3. Thứ tự khởi động services
+### 4. Service startup order
 
-**PHẢI** khởi động theo thứ tự:
+**MUST** start in this order:
 
 1. Docker Infrastructure (docker compose up)
-2. Employee Service (các service khác phụ thuộc)
+2. Employee Service (other services depend on it)
 3. Time Service
 4. Notification Service
 5. API Gateway
 6. Frontend
 
-### 4. appsettings.json phải ở thư mục gốc
+### 5. appsettings.json must be in root directory
 
-Mỗi .NET service cần file `appsettings.json` ở **cùng cấp với file `.csproj`**, KHÔNG phải trong `src/API/`.
+Each .NET service needs `appsettings.json` file at **the same level as `.csproj` file**, NOT in `src/API/`.
 
-### 5. Lần đầu chạy Employee/Time/Notification Service
+### 6. First time running Employee/Time/Notification Service
 
-EF Core sẽ tự động tạo database schema (migration). Nếu gặp lỗi database, kiểm tra:
+EF Core will automatically create database schema (migration). If you encounter database errors, check:
 
-- PostgreSQL container đã healthy chưa
-- Connection string trong appsettings.json đúng chưa
+- Is PostgreSQL container healthy?
+- Is connection string in appsettings.json correct?
 
-### 6. CORS errors trên Frontend
+### 7. CORS errors on Frontend
 
-Nếu gặp CORS error, kiểm tra:
+If you encounter CORS errors, check:
 
-1. API Gateway đang chạy: `curl http://localhost:5000/health`
-2. File `hrm-ApiGateway/appsettings.json` có cấu hình:
+1. API Gateway is running: `curl http://localhost:5000/health`
+2. File `hrm-ApiGateway/appsettings.json` has configuration:
 
 ```json
 "Cors": {
@@ -1083,14 +1091,14 @@ Nếu gặp CORS error, kiểm tra:
 
 ---
 
-## Xử lý sự cố
+## Troubleshooting
 
-### Port đã bị chiếm
+### Port already in use
 
 **Windows:**
 
 ```powershell
-# Tìm process đang dùng port
+# Find process using port
 netstat -ano | findstr :5001
 
 # Kill process
@@ -1104,41 +1112,41 @@ lsof -i :5001
 kill -9 <PID>
 ```
 
-### Không kết nối được database
+### Cannot connect to database
 
 ```bash
-# Kiểm tra container status
+# Check container status
 docker compose ps
 
-# Xem logs
+# View logs
 docker compose logs postgres-employee
 
-# Restart container cụ thể
+# Restart specific container
 docker compose restart postgres-employee
 ```
 
-### Không kết nối được RabbitMQ
+### Cannot connect to RabbitMQ
 
 ```bash
 docker compose logs rabbitmq
-# Đợi "Ready to accept connections"
+# Wait for "Ready to accept connections"
 # UI: http://localhost:15672 (hrm_user / hrm_pass)
 ```
 
-### NuGet restore thất bại
+### NuGet restore failed
 
 ```bash
 cd <service-directory>
 dotnet restore --no-cache
 ```
 
-### Socket Service không nhận events
+### Socket Service not receiving events
 
-1. Kiểm tra RabbitMQ connection: `docker compose logs socket-service`
-2. Verify queue name `hrm_socket_work_queue` match giữa Time Service và Socket Service
-3. Kiểm tra user đã join đúng room
+1. Check RabbitMQ connection: `docker compose logs socket-service`
+2. Verify queue name `hrm_socket_work_queue` match between Time Service and Socket Service
+3. Check if user has joined the correct room
 
-### gRPC connection lỗi
+### gRPC connection error
 
 ```bash
 # Test Employee Service
@@ -1148,83 +1156,83 @@ grpcurl -plaintext localhost:5002 grpc.health.v1.Health/Check
 grpcurl -plaintext localhost:5004 grpc.health.v1.Health/Check
 ```
 
-### Reset toàn bộ hệ thống
+### Reset entire system
 
 ```bash
-# Dừng và xóa tất cả containers + volumes
+# Stop and remove all containers + volumes
 cd hrm-deployment
 docker compose down -v
 
-# Kill tất cả .NET processes (Windows)
+# Kill all .NET processes (Windows)
 taskkill /IM dotnet.exe /F
 
-# Kill tất cả .NET processes (Linux/Mac)
+# Kill all .NET processes (Linux/Mac)
 pkill -f "dotnet run"
 
-# Xóa node_modules nếu cần
+# Delete node_modules if needed
 cd ../hrm-nextjs
 rm -rf node_modules .next
 
-# Khởi động lại từ đầu
+# Restart from scratch
 cd ../hrm-deployment
 docker compose up -d --build
 ```
 
-### Xem logs của service
+### View service logs
 
 ```bash
 # Docker service logs
 docker compose logs -f keycloak
 docker compose logs -f socket-service
 
-# .NET service logs - xem trực tiếp trong terminal đang chạy
+# .NET service logs - view directly in the running terminal
 ```
 
-### Frontend lỗi 404 static files
+### Frontend 404 static files error
 
-Nếu gặp lỗi:
+If you encounter errors:
 
 ```
 GET http://localhost:3000/_next/static/css/app/layout.css net::ERR_ABORTED 404
 GET http://localhost:3000/_next/static/chunks/main-app.js net::ERR_ABORTED 404
 ```
 
-**Nguyên nhân:** Process Node.js cũ bị treo, `.next` cache không đồng bộ.
+**Cause:** Old Node.js process is stuck, `.next` cache is out of sync.
 
-**Cách fix:**
+**Fix:**
 
 **Windows (PowerShell):**
 
 ```powershell
-# Tìm và kill process chiếm port 3000
+# Find and kill process occupying port 3000
 netstat -ano | findstr :3000
 taskkill /PID <PID> /F
 
-# Hoặc kill tất cả node processes
+# Or kill all node processes
 taskkill /IM node.exe /F
 ```
 
 **Windows (Git Bash):**
 
 ```bash
-# Tìm PID
+# Find PID
 netstat -ano | findstr :3000
 
-# Kill (thay <PID> bằng số PID tìm được)
+# Kill (replace <PID> with the found PID)
 taskkill //PID <PID> //F
 ```
 
 **Linux/Mac:**
 
 ```bash
-# Kill process trên port 3000
+# Kill process on port 3000
 lsof -ti:3000 | xargs kill -9
 
-# Hoặc
+# Or
 pkill -f "next dev"
 ```
 
-**Sau đó restart frontend:**
+**Then restart frontend:**
 
 ```bash
 cd hrm-nextjs
@@ -1234,26 +1242,26 @@ npm run dev
 
 ---
 
-## Dừng hệ thống
+## Stopping the System
 
-### Dừng tạm thời (giữ data)
+### Temporary stop (keep data)
 
 ```bash
-# Dừng Docker infrastructure
+# Stop Docker infrastructure
 cd hrm-deployment
 docker compose stop
 
-# Dừng .NET services: Ctrl+C trong mỗi terminal
+# Stop .NET services: Ctrl+C in each terminal
 ```
 
-### Dừng và xóa hoàn toàn
+### Stop and delete completely
 
 ```bash
-# Xóa containers VÀ volumes (MẤT DATA)
+# Delete containers AND volumes (LOSE DATA)
 cd hrm-deployment
 docker compose down -v
 
-# Chỉ xóa containers (GIỮ DATA)
+# Delete only containers (KEEP DATA)
 docker compose down
 ```
 
