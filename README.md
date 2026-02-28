@@ -1560,10 +1560,11 @@ docker compose up -d --build
 **Solution:**
 
 1. **Always use auth utility functions** from `@/lib/auth` instead of direct `localStorage`:
+
    ```typescript
    // ❌ WRONG - direct localStorage access
-   const token = localStorage.getItem("token"); 
-   
+   const token = localStorage.getItem("token");
+
    // ✅ CORRECT - use auth utilities
    import { getAccessToken } from "@/lib/auth";
    const token = getAccessToken();
@@ -1574,6 +1575,7 @@ docker compose up -d --build
    - Refresh token: `hrm_refresh_token`
 
 3. **Check if logged in:**
+
    ```bash
    # Open browser DevTools Console (F12) on http://localhost:3000
    localStorage.getItem("hrm_access_token")
