@@ -21,6 +21,7 @@ Microservices-based human resource management system, supporting employee manage
   - [Employee Service](#employee-service)
   - [Time Service](#time-service)
   - [Notification Service](#notification-service)
+  - [Employee Development Module](#employee-development-module)
   - [Socket Service](#socket-service)
   - [Keycloak (SSO)](#keycloak-sso)
   - [Authorization Service](#authorization-service)
@@ -411,15 +412,16 @@ curl http://localhost:8080/realms/hrm/.well-known/openid-configuration
 
 ### Access Web Interfaces
 
-| Service                 | URL                            | Notes             |
-| ----------------------- | ------------------------------ | ----------------- |
-| **Frontend**            | http://localhost:3000          | Main application  |
-| **Swagger API**         | http://localhost:5000/swagger  | API Documentation |
-| **GraphQL Playground**  | http://localhost:5000/graphql  | GraphQL queries   |
-| **Keycloak Admin**      | http://localhost:8080/admin    | SSO Management    |
-| **RabbitMQ Management** | http://localhost:15672         | Message Queue     |
-| **MinIO Console**       | http://localhost:9001          | Object Storage    |
-| **Hangfire Dashboard**  | http://localhost:5003/hangfire | Background Jobs   |
+| Service                  | URL                                        | Notes                               |
+| ------------------------ | ------------------------------------------ | ----------------------------------- |
+| **Frontend**             | http://localhost:3000                      | Main application                    |
+| **Employee Development** | http://localhost:3000/employee-development | Skills, Reviews, Goals, Certs (NEW) |
+| **Swagger API**          | http://localhost:5000/swagger              | API Documentation                   |
+| **GraphQL Playground**   | http://localhost:5000/graphql              | GraphQL queries                     |
+| **Keycloak Admin**       | http://localhost:8080/admin                | SSO Management                      |
+| **RabbitMQ Management**  | http://localhost:15672                     | Message Queue                       |
+| **MinIO Console**        | http://localhost:9001                      | Object Storage                      |
+| **Hangfire Dashboard**   | http://localhost:5003/hangfire             | Background Jobs                     |
 
 ---
 
@@ -504,28 +506,30 @@ SPA dashboard for the entire HRM system. Uses Next.js 14 App Router.
 - Profile & Settings (3 tabs: personal info, documents, emergency contacts)
 - **Payslip Preview** (auto-calculate: 22 standard days, attendance, OT x1.5, BHXH/BHYT/BHTN/tax deductions, Print/PDF)
 - **Announcement Board** (filter by category, pin important, HR create/edit/delete, dashboard widget)
+- **Employee Development** (Skills matrix with proficiency levels, Performance reviews with multi-dimensional ratings, Goal/OKR tracking with progress, Professional certifications management)
 
 **Routes:**
 
-| Route              | Role       | Description                                                    |
-| ------------------ | ---------- | -------------------------------------------------------------- |
-| `/`                | Public     | Login                                                          |
-| `/dashboard`       | Employee   | Dashboard, check-in/out                                        |
-| `/attendance`      | Employee   | Attendance history                                             |
-| `/leave`           | Employee   | Leave requests, balance                                        |
-| `/overtime`        | Employee   | Overtime requests                                              |
-| `/shifts`          | Employee   | Work shifts                                                    |
-| `/organization`    | Employee   | Organization chart                                             |
-| `/notifications`   | Employee   | Notifications                                                  |
-| `/profile`         | Employee   | Personal profile (3 tabs: info, documents, emergency contacts) |
-| `/payroll`         | Employee   | **NEW** - Payslip (HR view all, employee view own)             |
-| `/announcements`   | Employee   | **NEW** - Company announcements                                |
-| `/employees`       | Manager/HR | Employee management                                            |
-| `/departments`     | Manager/HR | Department management (CRUD)                                   |
-| `/teams`           | Manager/HR | Team management                                                |
-| `/team-attendance` | Manager/HR | Team attendance                                                |
-| `/approvals`       | Manager/HR | Request approvals                                              |
-| `/reports`         | Manager/HR | Reports, analytics                                             |
+| Route                   | Role       | Description                                                       |
+| ----------------------- | ---------- | ----------------------------------------------------------------- |
+| `/`                     | Public     | Login                                                             |
+| `/dashboard`            | Employee   | Dashboard, check-in/out                                           |
+| `/attendance`           | Employee   | Attendance history                                                |
+| `/leave`                | Employee   | Leave requests, balance                                           |
+| `/overtime`             | Employee   | Overtime requests                                                 |
+| `/shifts`               | Employee   | Work shifts                                                       |
+| `/organization`         | Employee   | Organization chart                                                |
+| `/notifications`        | Employee   | Notifications                                                     |
+| `/profile`              | Employee   | Personal profile (3 tabs: info, documents, emergency contacts)    |
+| `/payroll`              | Employee   | **NEW** - Payslip (HR view all, employee view own)                |
+| `/announcements`        | Employee   | **NEW** - Company announcements                                   |
+| `/employee-development` | Employee   | **NEW** - Skills, Performance Reviews, Goals/OKRs, Certifications |
+| `/employees`            | Manager/HR | Employee management                                               |
+| `/departments`          | Manager/HR | Department management (CRUD)                                      |
+| `/teams`                | Manager/HR | Team management                                                   |
+| `/team-attendance`      | Manager/HR | Team attendance                                                   |
+| `/approvals`            | Manager/HR | Request approvals                                                 |
+| `/reports`              | Manager/HR | Reports, analytics                                                |
 
 **Environment Variables (`.env.local`):**
 
@@ -537,6 +541,8 @@ NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=hrm-frontend
 NEXT_PUBLIC_NOTIFICATION_HUB_URL=http://localhost:5000/hubs/notification
 ```
 
+> **Note:** The `next.config.js` includes rewrites to proxy `/api/*` and `/graphql` requests to API Gateway (port 5000), enabling seamless API calls without CORS issues.
+
 **App structure:**
 
 ```
@@ -547,6 +553,7 @@ app/
 │   ├── dashboard/
 │   ├── employees/
 │   ├── departments/            # NEW - Department management
+│   ├── employee-development/   # NEW - Skills, Reviews, Goals, Certs
 │   ├── attendance/
 │   ├── leave/
 │   ├── overtime/
@@ -582,12 +589,14 @@ store/
 
 **NEW Components:**
 
-- **CollapsibleLayout.tsx** - Sidebar with toggle collapse (260px ↔ 72px)
+- **CollapsibleLayout.tsx** - Enhanced sidebar with toggle collapse (260px ↔ 72px)
   - Smooth transitions & animations
   - Icon-only mode when collapsed
   - Tooltips on hover
   - Persist state in localStorage
   - Responsive mobile/desktop
+  - **Menu Integration:** Added "Employee Development" menu item with `TrendingUpIcon` positioned after "Employees" item
+  - Role-based visibility (accessible to all employees)
 
 - **departments/page.tsx** - Department Management
   - Full CRUD operations
@@ -595,11 +604,44 @@ store/
   - Data table with edit/delete
   - Modal forms with validation
 
+- **employee-development/page.tsx** - Comprehensive Employee Development Module (1067 lines)
+  - **Tech Stack:** Material-UI 5 (Tabs, Accordion, Cards, Dialog, LinearProgress, Rating)
+  - **State Management:** React hooks (useState, useEffect, useMemo) + Redux for auth
+  - **Date Handling:** dayjs for formatting and date manipulation
+  - **API Integration:** Fetch API with async/await pattern
+  - **4-Tab Architecture:**
+    - Tab 1: Skills Matrix (Linear progress bars, category filters, CRUD dialogs)
+    - Tab 2: Performance Reviews (Accordion UI, star ratings, acknowledge workflow)
+    - Tab 3: Goals & OKRs (Card grid, progress tracking, priority badges)
+    - Tab 4: Certifications (Table view, expiry alerts, renewal flags)
+  - **Role-Based Features:**
+    - Employee selector dropdown (visible to HR/Manager roles)
+    - View own data vs view all employees
+    - Conditional action buttons based on permissions
+  - **Visual Components:**
+    - Color-coded proficiency levels (0-20%: red, 21-60%: orange, 61-100%: green)
+    - 5-star rating system with interactive display
+    - Status chips (Draft/Submitted/Acknowledged for reviews, Not Started/In Progress/Completed for goals)
+    - Priority badges (Low: default, Medium: primary, High: warning, Critical: error)
+    - Expiry indicators (Active: success, Expiring Soon: warning, Expired: error)
+
 **State Management (Redux Toolkit):**
 
-- `authSlice` — `isAuthenticated`, `user`, `token` (auto-refresh every 4 minutes)
+- `authSlice` — `isAuthenticated`, `user`, `token` (auto-refresh every 4 minutes), `roles` (used for Employee Development access control)
 - `attendanceSlice` — `isCheckedIn`, `checkInTime`, `checkOutTime`, `currentHours`
 - `notificationSlice` — `notifications[]`, `unreadCount`
+
+**Employee Development Data Flow:**
+
+```
+Frontend (employee-development/page.tsx)
+    ↓ HTTP GET/POST/PUT/DELETE
+API Gateway (SkillsController, PerformanceReviewsController, etc.)
+    ↓ Mock responses (currently) / gRPC calls (future)
+Employee Service (Domain entities in employee_db)
+    ↓ EF Core DbContext
+PostgreSQL (EmployeeSkills, EmployeePerformanceReviews, EmployeeGoals, EmployeeCertifications)
+```
 
 **SignalR:** Auto-reconnect with exponential backoff (1s → 3s → 5s). JWT auth via Keycloak token.
 
@@ -619,16 +661,20 @@ Entry point for all client requests. Aggregation layer between frontend and back
 
 **REST API Endpoints:**
 
-| Group         | Prefix                       | Function                                      |
-| ------------- | ---------------------------- | --------------------------------------------- |
-| Auth          | `/api/auth`                  | Login, logout, refresh token, change password |
-| Employees     | `/api/employees`             | Employee CRUD, get me, get manager            |
-| Departments   | `/api/employees/departments` | Department CRUD (HRStaff+)                    |
-| Teams         | `/api/employees/teams`       | Team CRUD (HRStaff+)                          |
-| Attendance    | `/api/attendance`            | Check-in/out, history, team attendance        |
-| Leave         | `/api/leave`                 | Create/approve/reject leave requests          |
-| Overtime      | `/api/overtime`              | Create/approve/reject overtime requests       |
-| Notifications | `/api/notifications`         | List, mark as read                            |
+| Group                   | Prefix                       | Function                                                 |
+| ----------------------- | ---------------------------- | -------------------------------------------------------- |
+| Auth                    | `/api/auth`                  | Login, logout, refresh token, change password            |
+| Employees               | `/api/employees`             | Employee CRUD, get me, get manager                       |
+| Departments             | `/api/employees/departments` | Department CRUD (HRStaff+)                               |
+| Teams                   | `/api/employees/teams`       | Team CRUD (HRStaff+)                                     |
+| Attendance              | `/api/attendance`            | Check-in/out, history, team attendance                   |
+| Leave                   | `/api/leave`                 | Create/approve/reject leave requests                     |
+| Overtime                | `/api/overtime`              | Create/approve/reject overtime requests                  |
+| Notifications           | `/api/notifications`         | List, mark as read                                       |
+| **Skills**              | `/api/employees/{id}/skills` | **NEW** - Employee skills CRUD (ManagerOrHR)             |
+| **Performance Reviews** | `/api/performance-reviews`   | **NEW** - Performance reviews, acknowledge (ManagerOrHR) |
+| **Goals**               | `/api/goals`                 | **NEW** - Goal/OKR tracking with progress (All users)    |
+| **Certifications**      | `/api/certifications`        | **NEW** - Professional certifications (ManagerOrHR)      |
 
 **GraphQL Queries:** `getOrgChart`, `getDepartments`, `getTeams`, `getTeamMembers`
 
@@ -643,6 +689,58 @@ Entry point for all client requests. Aggregation layer between frontend and back
 | ManagerOrHR | `manager`, `hr_staff`, `system_admin` | Request approvals (✅ Fixed) |
 
 > **✅ Updated:** Admin users can now access Manager/HR endpoints
+
+**Employee Development Controllers (NEW):**
+
+The API Gateway now includes 4 new REST controllers for the Employee Development module. Currently implemented as **mock controllers** returning sample data for rapid frontend development:
+
+**SkillsController.cs** - `/api/employees/{employeeId}/skills`
+
+- `GET` - Retrieve employee skills (all users can view own, Manager/HR view all)
+- `POST` - Add new skill (requires `ManagerOrHR` policy)
+- `PUT /{skillId}` - Update skill proficiency (requires `ManagerOrHR`)
+- `DELETE /{skillId}` - Remove skill (requires `HRStaff` policy)
+
+**PerformanceReviewsController.cs** - `/api/performance-reviews`
+
+- `GET ?employeeId={id}` - Get reviews for employee (all authenticated users)
+- `POST` - Create new review (requires `ManagerOrHR` policy)
+- `PUT /{reviewId}` - Update review (requires `ManagerOrHR`)
+- `POST /{reviewId}/acknowledge` - Employee acknowledges review (requires `Employee` policy)
+- `DELETE /{reviewId}` - Delete review (requires `HRStaff` policy)
+
+**GoalsController.cs** - `/api/goals`
+
+- `GET ?employeeId={id}` - Get employee goals (all authenticated users)
+- `POST` - Create new goal (all employees can create their own goals)
+- `PUT /{goalId}` - Update goal progress (requires `ManagerOrHR` or goal owner)
+- `DELETE /{goalId}` - Delete goal (requires `ManagerOrHR` policy)
+
+**CertificationsController.cs** - `/api/certifications`
+
+- `GET ?employeeId={id}` - Get employee certifications (all authenticated users)
+- `POST` - Add certification (requires `ManagerOrHR` policy)
+- `PUT /{certId}` - Update certification (requires `ManagerOrHR`)
+- `DELETE /{certId}` - Remove certification (requires `HRStaff` policy)
+
+**Mock Data Response Format:**
+
+All controllers return anonymous objects matching frontend TypeScript interfaces:
+
+```csharp
+return Ok(new {
+    id = 1,
+    employeeId = employeeId,
+    skillName = "C# Programming",
+    category = "Technical",
+    proficiencyLevel = 4,
+    assessedBy = "John Smith",
+    lastAssessedDate = DateTime.UtcNow.AddMonths(-2),
+    notes = "Strong expertise in .NET Core"
+});
+```
+
+> **⚠️ Note:** These controllers use mock data for frontend development. For production, replace with proper gRPC client calls to Employee Service or implement repository pattern with EF Core.
 
 ---
 
@@ -673,6 +771,27 @@ gRPC microservice managing employees, departments, teams, and company.
 **Employment Type:** FullTime, PartTime, Contract, Temporary, Intern
 
 **Database:** `employee_db` on `localhost:5432`
+
+**Domain Entities (NEW - Employee Development):**
+
+| Entity                      | File Location                                      | Key Properties & Features                                                                                                                                                                                                                                                   |
+| --------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EmployeeSkill`             | `src/Domain/Entities/EmployeeSkill.cs`             | SkillName, Category (enum: Technical/SoftSkills/Language/Certification/Management), ProficiencyLevel (1-5), AssessedBy, LastAssessedDate, Notes. Index on (EmployeeId, Category)                                                                                            |
+| `EmployeePerformanceReview` | `src/Domain/Entities/EmployeePerformanceReview.cs` | ReviewType (enum: Annual/MidYear/Probation/360Degree), ReviewPeriod, 5 rating dimensions (Performance/Behavior/Teamwork/Initiative/Overall, 1-5), Status workflow (Draft→Submitted→Acknowledged→Completed), ReviewerId, ManagerComments, EmployeeComments, AcknowledgedDate |
+| `EmployeeSalaryHistory`     | `src/Domain/Entities/EmployeeSalaryHistory.cs`     | PreviousSalary, NewSalary (decimal 18,2), EffectiveDate, ChangeReason (enum: Promotion/AnnualIncrease/PerformanceBonus/MarketAdjustment/Demotion), ApprovedBy, Notes                                                                                                        |
+| `EmployeeOnboarding`        | `src/Domain/Entities/EmployeeOnboarding.cs`        | StartDate, CompletionDate, Status (NotStarted/InProgress/Completed), PreBoardingTasks/FirstDayTasks/FirstWeekTasks/FirstMonthTasks (JSON strings for checklist), BuddyId (FK to Employee), Notes                                                                            |
+| `EmployeeCertification`     | `src/Domain/Entities/EmployeeCertification.cs`     | CertificationName, IssuingOrganization, IssueDate, ExpiryDate, CredentialId, RequiresRenewal (bool), Status (Active/Expired/Revoked), VerificationUrl                                                                                                                       |
+| `EmployeeGoal`              | `src/Domain/Entities/EmployeeGoal.cs`              | Title, Description, GoalType (Individual/Team/Company), Category (Performance/Development/Project), StartDate, EndDate, Progress (0-100 int), Status (NotStarted/InProgress/Completed/Cancelled), Priority (Low/Medium/High/Critical), Metrics, ReviewerId, Notes           |
+
+**EF Core Configuration (EmployeeDbContext.cs):**
+
+- All entities configured with `HasMany/WithOne` relationships to Employee
+- Cascade delete on employee removal (`.OnDelete(DeleteBehavior.Cascade)`)
+- Composite index on `EmployeeSkill` (EmployeeId, Category) for efficient skill filtering
+- Composite index on `EmployeePerformanceReview` (EmployeeId, ReviewPeriod) for period queries
+- Decimal precision config: `HasPrecision(18, 2)` for salary fields
+- String max lengths: 200 for names/titles, 2000 for descriptions/notes
+- Auto-initialization: `DbContext.Database.EnsureCreatedAsync()` in Program.cs (line 48)
 
 **Seed Data:** 7 departments, 14 teams, 30 sample employees.
 
@@ -746,6 +865,243 @@ HTTP microservice managing real-time notifications via SignalR.
 **Notification Types:** LeaveRequestCreated/Approved/Rejected, AttendanceReminder, OvertimeRequest\*, EmployeeOnboarding/Offboarding, BirthdayReminder, SystemAnnouncement...
 
 **Database:** `notification_db` on `localhost:5434`
+
+---
+
+### Employee Development Module
+
+**NEW FEATURE** - Comprehensive talent management and employee growth tracking system.
+
+**Managed by:** API Gateway (mock controllers) + Employee Service (domain entities)
+
+**Business Features:**
+
+#### 1. Skills Management
+
+Track employee competencies across multiple categories with 5-level proficiency rating.
+
+**Skill Categories:**
+
+- Technical (Programming, Tools, Platforms)
+- Soft Skills (Communication, Leadership, Problem Solving)
+- Language (English, Japanese, Vietnamese proficiency)
+- Certification (AWS, Azure, Scrum Master)
+- Management (Team Management, Project Management)
+
+**Proficiency Levels:** 1 (Beginner) → 2 (Basic) → 3 (Intermediate) → 4 (Advanced) → 5 (Expert)
+
+**API Endpoints:**
+
+- `GET /api/employees/{id}/skills` - Get all skills for an employee
+- `POST /api/employees/{id}/skills` - Add new skill (requires Manager/HR role)
+- `PUT /api/employees/{id}/skills/{skillId}` - Update skill proficiency (Manager/HR)
+- `DELETE /api/employees/{id}/skills/{skillId}` - Remove skill (HR Staff only)
+
+#### 2. Performance Reviews
+
+Multi-dimensional performance evaluation system with structured workflows.
+
+**Review Types:**
+
+- Annual Review (yearly comprehensive evaluation)
+- Mid-Year Review (6-month checkpoint)
+- Probation Review (new employee assessment)
+- 360-Degree Feedback (peer + manager + self evaluation)
+
+**Rating Dimensions (1-5 stars):**
+
+- Performance Quality - Work output and quality standards
+- Behavior & Attitude - Professional conduct and teamwork
+- Teamwork & Collaboration - Cross-team cooperation
+- Initiative & Innovation - Proactive problem-solving
+- Overall Rating - Aggregate assessment
+
+**Review Workflow:**
+
+```
+Draft → Submitted → Acknowledged (by employee) → Completed
+```
+
+**API Endpoints:**
+
+- `GET /api/performance-reviews?employeeId={id}` - Get reviews for employee
+- `POST /api/performance-reviews` - Create new review (Manager/HR)
+- `PUT /api/performance-reviews/{reviewId}` - Update review (Manager/HR)
+- `POST /api/performance-reviews/{reviewId}/acknowledge` - Employee confirms receipt
+- `DELETE /api/performance-reviews/{reviewId}` - Delete review (HR only)
+
+#### 3. Goals & OKRs
+
+Objective and Key Results tracking with real-time progress monitoring.
+
+**Goal Types:**
+
+- Individual - Personal development goals
+- Team - Collaborative team objectives
+- Company - Organization-wide strategic goals
+
+**Goal Categories:**
+
+- Performance - KPI and metric-based objectives
+- Development - Skill growth and learning objectives
+- Project - Project-specific deliverables
+
+**Priority Levels:** Low | Medium | High | Critical
+
+**Status Workflow:**
+
+```
+Not Started → In Progress → Completed / Cancelled
+```
+
+**Progress Tracking:** 0-100% with visual indicators and milestone checkpoints
+
+**API Endpoints:**
+
+- `GET /api/goals?employeeId={id}` - Get employee goals
+- `POST /api/goals` - Create new goal (all employees can create own goals)
+- `PUT /api/goals/{goalId}` - Update goal progress (owner or Manager/HR)
+- `DELETE /api/goals/{goalId}` - Delete goal (Manager/HR)
+
+#### 4. Professional Certifications
+
+Track industry certifications with automatic expiry alerts.
+
+**Certification Status:**
+
+- Active - Valid certification
+- Expired - Past expiration date
+- Revoked - Withdrawn by issuer
+
+**Features:**
+
+- Expiry date tracking with renewal reminders
+- Issuing organization records
+- Credential ID/number storage
+- Renewal requirement flag
+
+**API Endpoints:**
+
+- `GET /api/certifications?employeeId={id}` - Get employee certifications
+- `POST /api/certifications` - Add certification (Manager/HR)
+- `PUT /api/certifications/{certId}` - Update certification (Manager/HR)
+- `DELETE /api/certifications/{certId}` - Remove certification (HR only)
+
+**Frontend Features:**
+
+The Employee Development page (`/employee-development`) provides a comprehensive 4-tab interface:
+
+**Tab 1: Skills Matrix**
+
+- Visual proficiency bars for each skill
+- Filter by category (All, Technical, Soft Skills, etc.)
+- Color-coded proficiency levels (red→yellow→green)
+- Add/edit/delete skills with validation
+- Last assessment date and reviewer tracking
+
+**Tab 2: Performance Reviews**
+
+- Accordion view with expandable review details
+- Star rating visualization (5-star system)
+- Manager/reviewer information display
+- Employee comment/acknowledgment section
+- Status badges (Draft, Submitted, Acknowledged)
+- Create review dialog with all rating dimensions
+
+**Tab 3: Goals & OKRs**
+
+- Card grid layout with progress indicators
+- Linear progress bars with percentage
+- Priority badges (color-coded by urgency)
+- Status chips (Not Started, In Progress, Completed)
+- Start/end date tracking with overdue warnings
+- Metrics and success criteria display
+- Quick progress update functionality
+
+**Tab 4: Certifications**
+
+- Table view with sorting capabilities
+- Expiry status indicators (Active/Expired/Expiring Soon)
+- Issuing organization and credential ID
+- Renewal requirement flags
+- Add/edit/delete certification forms
+- Automatic expiry alerts (90 days before expiration)
+
+**Authorization:**
+
+- All employees can view their own development data
+- Managers can view/edit team members' data
+- HR Staff can view/edit all employees' data
+- Only HR Staff can delete records permanently
+
+**API Usage Examples:**
+
+```javascript
+// Frontend: Fetch employee skills
+const response = await fetch(
+  `http://localhost:5000/api/employees/EMP001/skills`,
+  {
+    headers: { Authorization: `Bearer ${keycloakToken}` },
+  },
+);
+const skills = await response.json();
+
+// Frontend: Create new performance review (Manager/HR only)
+await fetch("http://localhost:5000/api/performance-reviews", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    employeeId: "EMP001",
+    reviewType: "Annual",
+    reviewPeriod: "2026-Q1",
+    performanceRating: 4,
+    behaviorRating: 5,
+    teamworkRating: 4,
+    initiativeRating: 4,
+    overallRating: 4,
+    managerComments: "Excellent performance this quarter",
+  }),
+});
+
+// Frontend: Update goal progress (any authenticated user for their own goals)
+await fetch(`http://localhost:5000/api/goals/${goalId}`, {
+  method: "PUT",
+  headers: {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    progress: 75,
+    notes: "On track to complete by end of month",
+  }),
+});
+```
+
+**Implementation Notes:**
+
+- **Current Status:** Mock controllers return static data for rapid frontend prototyping
+- **Production Roadmap:** Replace mock responses with:
+  - Option 1: gRPC client calls to Employee Service
+  - Option 2: Direct EF Core repository pattern in API Gateway
+  - Option 3: CQRS with MediatR commands/queries
+- **Database Migration:** When switching from mock to real data, ensure `EmployeeDbContext.EnsureCreatedAsync()` has run to create all tables
+- **Frontend State:** Component uses local state (useState) - consider moving to Redux for global state management
+- **Validation:** Frontend validates required fields, proficiency ranges (1-5), progress ranges (0-100), date logic (start < end)
+- **Error Handling:** API returns 401 (Unauthorized), 403 (Forbidden for role violations), 404 (Not Found), 400 (Bad Request with validation errors)
+
+**Performance Considerations:**
+
+- Skills API: Returns all skills for an employee (typically 5-15 records) - no pagination needed
+- Reviews API: Filter by employeeId + year to limit result set
+- Goals API: Filter by status (In Progress, Not Started) to show active goals only
+- Certifications: Alert logic runs client-side (90 days before expiry) to avoid server load
+
+**Database Schema (Employee Service):**
+
+All tables use EF Core with automatic migration via `EnsureCreatedAsync()`.
 
 ---
 
@@ -1025,7 +1381,24 @@ Config changes only require container restart, no need to rebuild image.
 
 ### 1. Database Migration for New Features
 
-**IMPORTANT:** New features (Payslip, Profile 3-tabs, Announcements) require 3 new tables: `EmployeeDocuments`, `EmployeeContacts`, `Announcements`. The project uses `EnsureCreatedAsync()`, so when you **drop & recreate database** (`docker compose down -v && docker compose up -d`), tables will be auto-created. If you want to keep existing data, you need to add migrations manually.
+**IMPORTANT:** New features require additional database tables:
+
+**Payslip & Profile Features:**
+
+- `EmployeeDocuments` - Document storage
+- `EmployeeContacts` - Emergency contacts (3-tab profile)
+- `Announcements` - Company announcements
+
+**Employee Development Features:**
+
+- `EmployeeSkills` - Skills with proficiency levels
+- `EmployeePerformanceReviews` - Performance reviews with ratings
+- `EmployeeSalaryHistory` - Salary change audit trail
+- `EmployeeOnboarding` - Onboarding workflow and checklists
+- `EmployeeCertifications` - Professional certifications tracking
+- `EmployeeGoals` - OKR/KPI goals with progress
+
+The project uses `EnsureCreatedAsync()`, so when you **drop & recreate database** (`docker compose down -v && docker compose up -d`), all tables will be auto-created. If you want to keep existing data, you need to add migrations manually.
 
 ### 2. Keycloak shows "unhealthy" but still works
 
@@ -1178,6 +1551,42 @@ cd ../hrm-deployment
 docker compose up -d --build
 ```
 
+### 401 Unauthorized errors (Authorization: Bearer null)
+
+**Symptoms:** API calls return 401, browser console shows `Authorization: Bearer null`, `refreshToken=undefined`
+
+**Cause:** Frontend code using incorrect localStorage key or not using the auth utility functions.
+
+**Solution:**
+
+1. **Always use auth utility functions** from `@/lib/auth` instead of direct `localStorage`:
+   ```typescript
+   // ❌ WRONG - direct localStorage access
+   const token = localStorage.getItem("token"); 
+   
+   // ✅ CORRECT - use auth utilities
+   import { getAccessToken } from "@/lib/auth";
+   const token = getAccessToken();
+   ```
+
+2. **Token storage keys** (defined in `auth.ts`):
+   - Access token: `hrm_access_token` (NOT `"token"` or `"access_token"`)
+   - Refresh token: `hrm_refresh_token`
+
+3. **Check if logged in:**
+   ```bash
+   # Open browser DevTools Console (F12) on http://localhost:3000
+   localStorage.getItem("hrm_access_token")
+   # Should return a JWT string, not null
+   ```
+
+4. **If still null, clear storage and re-login:**
+   ```javascript
+   // In browser console
+   localStorage.clear();
+   // Then navigate to http://localhost:3000 and login again
+   ```
+
 ### View service logs
 
 ```bash
@@ -1239,6 +1648,82 @@ cd hrm-nextjs
 rm -rf .next
 npm run dev
 ```
+
+### Employee Development module issues
+
+**Problem: 404 on /employee-development route**
+
+**Solution:**
+
+1. Verify page file exists: `hrm-nextjs/src/app/(auth)/employee-development/page.tsx`
+2. Check Next.js compilation: Look for errors in terminal running `npm run dev`
+3. Clear Next.js cache: `rm -rf .next` then restart
+
+**Problem: API returns empty array for skills/reviews/goals**
+
+**Cause:** Mock controllers are currently active, returning sample data for specific employeeId only.
+
+**Solution:**
+
+1. Check if you're using correct employeeId (try "EMP001", "EMP002", "EMP003")
+2. Verify API Gateway is running: `curl http://localhost:5000/health`
+3. Check browser console for network errors
+4. For production: Implement real database queries (see API Usage Examples section)
+
+**Problem: 403 Forbidden when creating/editing records**
+
+**Cause:** Insufficient role permissions.
+
+**Solution:**
+
+1. Skills/Reviews/Certs require `ManagerOrHR` policy for POST/PUT
+2. Delete operations require `HRStaff` policy
+3. Check Keycloak token roles: `jwt.io` to decode token and verify `realm_access.roles` contains `manager`, `hr_staff`, or `system_admin`
+4. Re-login to refresh token if roles were recently changed
+
+**Problem: "Employee Development" menu item not showing in sidebar**
+
+**Solution:**
+
+1. Verify `CollapsibleLayout.tsx` or `Layout.tsx` includes the menu item with `TrendingUpIcon`
+2. Check role-based visibility: Menu item should be accessible to all authenticated users (role: `employee`)
+3. Hard refresh browser (Ctrl+F5) to clear component cache
+
+**Problem: Performance review acknowledge button not working**
+
+**Cause:** API endpoint expects specific payload structure.
+
+**Solution:**
+
+1. Ensure `POST /api/performance-reviews/{reviewId}/acknowledge` sends:
+   ```json
+   {
+     "employeeComments": "Your acknowledgment comment here"
+   }
+   ```
+2. Check review status - can only acknowledge reviews in "Submitted" status
+3. Verify employee is the review subject (not the reviewer)
+
+**Problem: Database tables not created for Employee Development**
+
+**Solution:**
+
+1. Stop Employee Service (Ctrl+C)
+2. Check `EmployeeDbContext.cs` includes all 6 DbSet properties
+3. Restart Employee Service - `EnsureCreatedAsync()` will create missing tables
+4. Or reset database: `docker compose down -v && docker compose up -d` (⚠️ loses all data)
+5. Check logs for EF Core errors during startup
+
+**Problem: Skills proficiency bar colors not displaying correctly**
+
+**Cause:** CSS styling issue or incorrect proficiency value.
+
+**Solution:**
+
+1. Verify proficiency level is 1-5 (integers only)
+2. Check MUI `LinearProgress` variant is "determinate"
+3. Progress value calculation: `(proficiencyLevel / 5) * 100`
+4. Color logic should be: 0-20%=error, 21-60%=warning, 61-100%=success
 
 ---
 
